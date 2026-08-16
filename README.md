@@ -32,22 +32,28 @@
 
 ---
 
-## Security Boundary
+## ⚖️ Two Ways to Use MapMyServer: Browser Mode vs. Developer Mode
 
-> **This extension only collects data the current user/application is authorized to access.**
+You choose how deep you want to go. For standard structure mapping, **no developer portal or coding is required**.
 
-- ✅ Reads page-visible DOM elements on `discord.com`
-- ✅ Uses official Discord OAuth2 API for authorized data collection
-- ✅ Tags all data with provenance metadata (`page-visible`, `discord-api`, etc.)
-- ❌ Does **NOT** extract authentication tokens or cookies
-- ❌ Does **NOT** use self-bot patterns or unauthorized API calls
-- ❌ Does **NOT** intercept network requests or scrape member lists
+| Feature | 🌐 Mode 1: Browser Mode (DOM / Inspect)<br/>**Default · Zero Setup** | 🔑 Mode 2: Developer Mode (OAuth2 / Bot)<br/>**Optional · Deep Analysis** |
+|---|---|---|
+| **Who is it for?** | **Everyone / Non-coders** | Community Architects, Admins & Developers |
+| **Setup Required** | **None.** Just load the extension and open Discord. | Paste Bot Token or OAuth credentials directly in Extension Settings ⚙️. |
+| **Do I need to edit code?** | ❌ No | ❌ No (configured directly in the UI). |
+| **Server Tree & Categories** | ✅ **Yes** — extracted directly from the sidebar. | ✅ **Yes** — fetched via official Discord API. |
+| **Channel Topics & Welcome Text** | ✅ **Yes** — reads what is visible on screen. | ✅ **Yes** — read from Discord channel objects. |
+| **Server Rules & Templates** | ✅ **Yes** — reads from `#rules` or `#introductions`. | ✅ **Yes** — read from channel history / system channels. |
+| **Visible Roles** | ⚠️ Partial (roles visible on member cards). | ✅ **Complete** — all server roles, colors, and order. |
+| **Exact Permission Matrix** | ⚠️ Basic (what your account can see). | ✅ **Exact Bitfield Permissions** — full allow/deny rules per role. |
+| **Large Server Virtualization** | ⚠️ Scans visible rendered channels. | ✅ Instant complete list of 500+ channels in 1 request. |
+| **Need Discord Open in Tab?** | Yes, you must have Discord open in a browser tab. | No, can fetch data headlessly in the background. |
 
 ---
 
-## 🚀 Quick Setup Guide for Non-Coders (No Coding Required)
+## 🚀 Option A: Quick Setup for Non-Coders (Browser Mode — No Coding)
 
-You do **not** need to be a developer, write code, or create a Discord Bot to use this extension. Just load the built folder into Google Chrome:
+You do **not** need to touch any terminal, write code, or create a Discord Bot.
 
 ### Step 1: Open Chrome Extensions
 1. Open Google Chrome.
@@ -62,7 +68,7 @@ Look at the **top-right corner** of the Extensions page and toggle the switch la
 ```
 
 ### Step 3: Click "Load unpacked"
-Once Developer mode is turned on, buttons will appear in the top-left corner. Click the button labeled **Load unpacked**.
+Click the button labeled **Load unpacked** in the top-left corner.
 
 ```
 [ Load unpacked ]  [ Pack extension ]  [ Update ]
@@ -70,27 +76,54 @@ Once Developer mode is turned on, buttons will appear in the top-left corner. Cl
 
 ### Step 4: Select the `extension/dist` Folder
 A file browser window will pop up:
-1. Navigate to the downloaded `MapMyServer` project directory.
+1. Navigate to the downloaded `MapMyServer` project folder.
 2. Open the **`extension`** folder.
-3. Select and open the **`dist`** folder:
+3. Select the **`dist`** folder and click **Select Folder**:
    ```
    MapMyServer /
    └── extension /
        └── dist  <-- 🎯 SELECT THIS FOLDER
    ```
-4. Click **Select Folder**.
 
-> 💡 **Why select `extension/dist`?**  
-> Chrome requires a file named `manifest.json` to recognize and run the extension. The ready-to-run files and `manifest.json` are located inside the `extension/dist` folder.
+> 💡 **Why `extension/dist`?**  
+> Chrome requires a file named `manifest.json` to recognize and run the extension. The ready-to-run compiled files and `manifest.json` are inside `extension/dist`.
 
 ---
 
-### Step 5: How to Use It on Discord
+### Step 5: Start Mapping Discord!
 1. Pin **MapMyServer** to your Chrome toolbar (click the puzzle icon 🧩 in the top-right corner of Chrome, then click the pin 📌 next to MapMyServer).
 2. Open Discord in your browser: [https://discord.com/channels/@me](https://discord.com/channels/@me) and navigate to any server you want to analyze.
 3. Click the **MapMyServer icon** in your toolbar and click **Open Dashboard** (or open the Chrome Side Panel).
 4. Click **"🔍 Analyze Current Server"**!
-5. *Don't have Discord open?* You can test the full dashboard anytime by clicking **"🧪 Load Rich Mock Community"**.
+5. *Want a demo?* You can explore all features anytime by clicking **"🧪 Load Rich Mock Community"**.
+
+---
+
+## 🔑 Option B: Developer Mode (OAuth2 / Bot API — Direct UI Configuration)
+
+If you want **deep permission auditing** (full role hierarchies and exact allow/deny matrices) on servers you own or manage:
+
+1. Open the MapMyServer Side Panel.
+2. Click the **⚙️ Settings icon** in the top-right header.
+3. Enter your credentials directly into the UI:
+   - **Backend API Endpoint:** `http://localhost:3000` (or your deployed backend URL)
+   - **Discord Session / JWT Token:** Paste your authenticated token
+   - **Custom Bot Token:** Paste your Discord Bot Token (`Bot OTU4...`)
+4. Click **💾 Save Settings**.
+5. All credentials are saved directly in your browser's private extension storage — **zero code editing required**.
+
+---
+
+## Security Boundary
+
+> **This extension only collects data the current user/application is authorized to access.**
+
+- ✅ Reads page-visible DOM elements on `discord.com`
+- ✅ Uses official Discord OAuth2 API for authorized data collection
+- ✅ Tags all data with provenance metadata (`page-visible`, `discord-api`, etc.)
+- ❌ Does **NOT** extract authentication tokens or cookies
+- ❌ Does **NOT** use self-bot patterns or unauthorized API calls
+- ❌ Does **NOT** intercept network requests or scrape member lists
 
 ---
 
@@ -118,7 +151,7 @@ A file browser window will pop up:
 | Rich Mock Data (GDG Community model with templates, rules, instructions) | ✅ |
 | DOM-based server detection & structure parsing | ✅ |
 
-### ✅ Phase 2 — Graph UI, Backend & Discord OAuth2
+### ✅ Phase 2 — Graph UI, Backend & In-UI Settings
 
 | Feature | Status |
 |---|---|
@@ -127,6 +160,7 @@ A file browser window will pop up:
 | **React Flow Graph UI** (Dagre auto-layout, interactive pan/zoom) | ✅ |
 | **Node.js/Express Backend** with TypeScript | ✅ |
 | **Discord OAuth2** (`/api/auth/login`, `/api/auth/callback`) | ✅ |
+| **In-UI Settings Panel** (save Bot tokens & endpoints without editing code) | ✅ |
 | **JWT Session Management** | ✅ |
 | **Discord API Client** (Guilds, Channels, Roles) | ✅ |
 | **Normalizer** (Discord API → `ServerBlueprint` with purpose heuristics) | ✅ |
@@ -188,6 +222,7 @@ MapMyServer/
 │       │       ├── ServerTree      # Collapsible tree with purpose badges
 │       │       ├── ServerGraph     # React Flow node graph
 │       │       ├── ChannelDetail   # Slide-over with provenance inspector
+│       │       ├── SettingsModal   # In-UI API & Token configuration
 │       │       ├── Statistics      # Charts & metrics
 │       │       ├── ChangeHistory   # Snapshots & diffs
 │       │       ├── ServerList      # Authorized servers (OAuth2)
@@ -214,7 +249,7 @@ MapMyServer/
 
 ## 🛠️ Developer Setup & Building from Source
 
-If you want to edit the code or build the project from scratch:
+If you are contributing or modifying the source code:
 
 ### Prerequisites
 - Node.js 18+
@@ -230,12 +265,8 @@ npm install
 npm run build --workspaces
 ```
 
-### 3. (Optional) Run the Backend for OAuth2
+### 3. (Optional) Run Local Backend
 ```bash
-# Set up Discord app credentials
-cp backend/.env.example backend/.env
-# Edit backend/.env with your Discord Client ID & Secret
-
 cd backend
 npm run dev
 ```

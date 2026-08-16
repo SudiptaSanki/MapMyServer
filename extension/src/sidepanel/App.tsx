@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useServerStore } from "@/store/serverStore";
 import { useUIStore, type SidePanelTab } from "@/store/uiStore";
 import ServerOverview from "./components/ServerOverview";
@@ -9,6 +9,7 @@ import Statistics from "./components/Statistics";
 import ChangeHistory from "./components/ChangeHistory";
 import SearchBar from "./components/SearchBar";
 import ChannelDetail from "./components/ChannelDetail";
+import SettingsModal from "./components/SettingsModal";
 
 const TABS: { id: SidePanelTab; label: string; icon: string }[] = [
   { id: "overview", label: "Overview", icon: "📊" },
@@ -21,6 +22,7 @@ const TABS: { id: SidePanelTab; label: string; icon: string }[] = [
 export default function App() {
   const { currentServer, blueprint } = useServerStore();
   const { activeTab, setActiveTab, selectedChannelId } = useUIStore();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // On mount, request current server info from background
   useEffect(() => {
@@ -29,7 +31,7 @@ export default function App() {
 
   const renderContent = () => {
     if (!currentServer.onDiscord && !blueprint) {
-      return <NotOnDiscord />;
+      return <NotOnDiscord onOpenSettings={() => setIsSettingsOpen(true)} />;
     }
 
     switch (activeTab) {
@@ -56,13 +58,22 @@ export default function App() {
     <div className="flex flex-col h-full bg-surface-800 relative">
       {/* Header */}
       <header className="flex-shrink-0 px-4 py-3 border-b border-surface-500/30 bg-surface-800/90 backdrop-blur-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md bg-discord-blurple/20 flex items-center justify-center text-xs">
-            🔍
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-md bg-discord-blurple/20 flex items-center justify-center text-xs">
+              🔍
+            </div>
+            <h1 className="text-sm font-semibold text-text-primary tracking-tight">
+              MapMyServer
+            </h1>
           </div>
-          <h1 className="text-sm font-semibold text-text-primary tracking-tight">
-            Discord Server Blueprint
-          </h1>
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            title="Configure Settings & API"
+            className="w-7 h-7 rounded-lg bg-surface-700/60 hover:bg-surface-600 text-text-muted hover:text-text-primary flex items-center justify-center text-xs transition-colors"
+          >
+            ⚙️
+          </button>
         </div>
 
         {isServerActive && serverName && (
@@ -113,6 +124,12 @@ export default function App() {
       {/* Slide-over Channel Detail Panel */}
       {selectedChannelId && <ChannelDetail />}
 
+      {/* In-UI Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
+
       {/* Footer */}
       <footer className="flex-shrink-0 px-4 py-2 border-t border-surface-500/20 text-[10px] text-text-muted/50 text-center">
         Data source: {sourceName} · Authorized access only
@@ -121,7 +138,7 @@ export default function App() {
   );
 }
 
-function NotOnDiscord() {
+function NotOnDiscord({ onOpenSettings }: { onOpenSettings: () => void }) {
   const { loadMockServer } = useServerStore();
 
   return (
@@ -134,12 +151,20 @@ function NotOnDiscord() {
           <p className="text-xs text-text-muted text-center mb-4 leading-relaxed">
             Load the rich GDG Community model with onboarding templates, server rules, and instructions.
           </p>
-          <button
-            onClick={loadMockServer}
-            className="px-4 py-2 bg-brand-500 hover:bg-brand-400 text-white text-xs font-semibold rounded-lg transition-colors w-full shadow-lg shadow-brand-500/20"
-          >
-            🧪 Load Rich Mock Community
-          </button>
+          <div className="flex flex-col gap-2 w-full">
+            <button
+              onClick={loadMockServer}
+              className="px-4 py-2 bg-brand-500 hover:bg-brand-400 text-white text-xs font-semibold rounded-lg transition-colors w-full shadow-lg shadow-brand-500/20"
+            >
+              🧪 Load Rich Mock Community
+            </button>
+            <button
+              onClick={onOpenSettings}
+              className="px-4 py-2 bg-surface-800 hover:bg-surface-700 text-text-secondary hover:text-text-primary text-xs font-semibold rounded-lg transition-colors w-full border border-surface-500/30 flex items-center justify-center gap-1.5"
+            >
+              <span>⚙️</span> Configure API & Bot Mode
+            </button>
+          </div>
         </div>
       </div>
       <div className="mt-2 text-xs text-text-muted/60 bg-surface-700/40 rounded-lg px-3 py-2">
