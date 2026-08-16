@@ -45,6 +45,55 @@
 
 ---
 
+## 🚀 Quick Setup Guide for Non-Coders (No Coding Required)
+
+You do **not** need to be a developer, write code, or create a Discord Bot to use this extension. Just load the built folder into Google Chrome:
+
+### Step 1: Open Chrome Extensions
+1. Open Google Chrome.
+2. In the address bar, type `chrome://extensions` and press **Enter**.  
+   *(Or click the 3 vertical dots at the top right of Chrome ➔ **Extensions** ➔ **Manage Extensions**).*
+
+### Step 2: Turn on Developer Mode
+Look at the **top-right corner** of the Extensions page and toggle the switch labeled **Developer mode** to **ON**.
+
+```
+                           [ Developer mode  (●) ON ]
+```
+
+### Step 3: Click "Load unpacked"
+Once Developer mode is turned on, buttons will appear in the top-left corner. Click the button labeled **Load unpacked**.
+
+```
+[ Load unpacked ]  [ Pack extension ]  [ Update ]
+```
+
+### Step 4: Select the `extension/dist` Folder
+A file browser window will pop up:
+1. Navigate to the downloaded `MapMyServer` project directory.
+2. Open the **`extension`** folder.
+3. Select and open the **`dist`** folder:
+   ```
+   MapMyServer /
+   └── extension /
+       └── dist  <-- 🎯 SELECT THIS FOLDER
+   ```
+4. Click **Select Folder**.
+
+> 💡 **Why select `extension/dist`?**  
+> Chrome requires a file named `manifest.json` to recognize and run the extension. The ready-to-run files and `manifest.json` are located inside the `extension/dist` folder.
+
+---
+
+### Step 5: How to Use It on Discord
+1. Pin **MapMyServer** to your Chrome toolbar (click the puzzle icon 🧩 in the top-right corner of Chrome, then click the pin 📌 next to MapMyServer).
+2. Open Discord in your browser: [https://discord.com/channels/@me](https://discord.com/channels/@me) and navigate to any server you want to analyze.
+3. Click the **MapMyServer icon** in your toolbar and click **Open Dashboard** (or open the Chrome Side Panel).
+4. Click **"🔍 Analyze Current Server"**!
+5. *Don't have Discord open?* You can test the full dashboard anytime by clicking **"🧪 Load Rich Mock Community"**.
+
+---
+
 ## Features by Phase
 
 ### ✅ Phase 1 — Chrome Extension & Rich Data Model
@@ -163,41 +212,25 @@ MapMyServer/
 
 ---
 
-## Getting Started
+## 🛠️ Developer Setup & Building from Source
+
+If you want to edit the code or build the project from scratch:
 
 ### Prerequisites
 - Node.js 18+
 - npm 9+
 
 ### 1. Install Dependencies
-
 ```bash
 npm install
 ```
 
 ### 2. Build All Workspaces
-
 ```bash
-cd shared && npm run build && cd ..
-cd extension && npm run build && cd ..
-cd backend && npm run build && cd ..
+npm run build --workspaces
 ```
 
-### 3. Load Extension in Chrome
-
-1. Open `chrome://extensions`
-2. Enable **Developer mode**
-3. Click **Load unpacked**
-4. Select the `extension/dist` folder
-
-### 4. Test with Mock Data
-
-1. Click the extension icon → **Open Side Panel**
-2. Click **"🧪 Load Rich Mock Community"**
-3. Explore the Tree, Graph, Stats, and Channel Detail panels
-
-### 5. (Optional) Run the Backend for OAuth2
-
+### 3. (Optional) Run the Backend for OAuth2
 ```bash
 # Set up Discord app credentials
 cp backend/.env.example backend/.env
