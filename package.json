@@ -1,0 +1,11 @@
+{
+  "name": "discord-server-blueprint",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Discord Server Blueprint Analyzer - Chrome Extension",
+  "workspaces": [
+    "extension",
+    "shared",
+    "backend"
+  ]
+}

@@ -1,0 +1,167 @@
+import { useServerStore } from "@/store/serverStore";
+import { useUIStore } from "@/store/uiStore";
+import AnalysisProgress from "./AnalysisProgress";
+
+const STAT_ITEMS = [
+  { key: "categories", label: "Categories", icon: "📁", color: "text-text-primary" },
+  { key: "textChannels", label: "Text Channels", icon: "📝", color: "text-channel-text" },
+  { key: "voiceChannels", label: "Voice Channels", icon: "🔊", color: "text-channel-voice" },
+  { key: "stageChannels", label: "Stage Channels", icon: "🎤", color: "text-channel-stage" },
+  { key: "forumChannels", label: "Forum Channels", icon: "📋", color: "text-channel-forum" },
+  { key: "announcementChannels", label: "Announcements", icon: "📢", color: "text-channel-announcement" },
+  { key: "threads", label: "Threads", icon: "💬", color: "text-text-secondary" },
+  { key: "roles", label: "Roles", icon: "👥", color: "text-discord-fuchsia" },
+  { key: "channelsWithTopics", label: "With Topics", icon: "💬", color: "text-emerald-400" },
+  { key: "channelsWithContent", label: "With Instructions", icon: "📜", color: "text-amber-400" },
+] as const;
+
+export default function ServerOverview() {
+  const { currentServer, blueprint, isAnalyzing, analysisError, requestAnalysis } =
+    useServerStore();
+  const { setSelectedChannelId } = useUIStore();
+
+  if (isAnalyzing) {
+    return <AnalysisProgress />;
+  }
+
+  return (
+    <div className="flex flex-col gap-3 animate-fade-in">
+      {/* Server Header */}
+      <div className="glass-card p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-discord-blurple to-discord-fuchsia/60 flex items-center justify-center text-lg shadow-lg shadow-discord-blurple/10">
+            🟣
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-base font-semibold text-text-primary truncate">
+              {blueprint?.server.name || currentServer.name || "Unknown Server"}
+            </h2>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[10px] text-text-muted font-mono">
+                ID: {(blueprint?.server.id || currentServer.guildId)?.slice(0, 8)}…
+              </span>
+              <span className="visibility-page text-[10px]">
+                {blueprint?.server.visibility.source || "page-visible"}
+              </span>
+              {blueprint?.server.memberCount && (
+                <span className="text-[10px] text-text-muted font-mono">
+                  👥 {blueprint.server.memberCount.toLocaleString()} members
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {blueprint?.server.description && (
+          <p className="text-xs text-text-secondary mt-3 p-2 rounded bg-surface-800/60 border border-surface-500/20 leading-relaxed">
+            {blueprint.server.description}
+          </p>
+        )}
+
+        {/* Analyze Button */}
+        <button
+          onClick={() => requestAnalysis()}
+          disabled={isAnalyzing}
+          className="btn-primary w-full mt-4"
+        >
+          <span>🔍</span>
+          {blueprint ? "Re-analyze Server" : "Analyze Current Server"}
+        </button>
+
+        {analysisError && (
+          <div className="mt-2 px-3 py-2 rounded-lg bg-discord-red/10 border border-discord-red/20 text-xs text-discord-red">
+            ⚠ {analysisError}
+          </div>
+        )}
+      </div>
+
+      {/* Server Rules (First-Class Feature) */}
+      {blueprint?.rules && blueprint.rules.rules.length > 0 && (
+        <div className="glass-card p-3 border-amber-500/30">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+              <span>📜</span> Server Rules ({blueprint.rules.rules.length})
+            </span>
+            {blueprint.rules.sourceChannelId && (
+              <button
+                onClick={() => setSelectedChannelId(blueprint.rules!.sourceChannelId!)}
+                className="text-[10px] text-discord-blurple hover:underline font-mono"
+              >
+                #{blueprint.rules.sourceChannelName || "rules"} ➔
+              </button>
+            )}
+          </div>
+          <div className="space-y-1.5 text-xs">
+            {blueprint.rules.rules.slice(0, 3).map((r, i) => (
+              <div key={i} className="text-text-primary bg-surface-800/80 p-2 rounded border border-surface-500/20">
+                {r.text}
+              </div>
+            ))}
+            {blueprint.rules.rules.length > 3 && (
+              <div className="text-[11px] text-text-muted text-center pt-1">
+                + {blueprint.rules.rules.length - 3} more rules (click channel to view all)
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Statistics Grid */}
+      {blueprint && (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            {STAT_ITEMS.map((item) => {
+              const value =
+                blueprint.statistics[item.key as keyof typeof blueprint.statistics];
+              if (typeof value !== "number" || value === 0) return null;
+
+              return (
+                <div key={item.key} className="metric-card">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base">{item.icon}</span>
+                    <span className={`metric-value ${item.color}`}>{value}</span>
+                  </div>
+                  <span className="metric-label">{item.label}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Total & Timestamp */}
+          <div className="glass-card p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-text-muted">Total Channels:</span>
+              <span className="text-sm font-bold text-text-primary">
+                {blueprint.statistics.totalChannels}
+              </span>
+            </div>
+            <span className="text-[10px] text-text-muted/60">
+              {new Date(blueprint.collectedAt).toLocaleString()}
+            </span>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => useServerStore.getState().saveSnapshot()}
+              className="btn-secondary flex-1"
+            >
+              📸 Save Snapshot
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Empty State */}
+      {!blueprint && !isAnalyzing && (
+        <div className="text-center py-8">
+          <div className="text-3xl mb-3">🏗️</div>
+          <p className="text-sm text-text-muted">
+            Click <strong>"Analyze Current Server"</strong> to generate a blueprint
+            of the server structure visible to you.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
