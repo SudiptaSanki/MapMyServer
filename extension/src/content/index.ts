@@ -6,12 +6,10 @@
  *  channel structure, and communicates with
  *  the background service worker.
  *
- *  Security boundary:
- *  - Reads only DOM that is visible to the user
- *  - Does NOT extract tokens or cookies
- *  - Does NOT intercept XHR/fetch requests
- *  - Does NOT use self-bot patterns
- *  - All data tagged as source: "page-visible"
+ *  Features:
+ *  - Auto Live Reload / Mutation Observer
+ *  - Virtual Scroller Sweeping for Large Servers
+ *  - Instant server-switch auto analysis
  * ───────────────────────────────────────────── */
 
 import {
@@ -20,7 +18,7 @@ import {
   parseServerInfo,
 } from "./parsers/serverParser";
 
-import { parseChannelSidebar } from "./parsers/channelParser";
+import { parseChannelSidebarAsync } from "./parsers/channelParser";
 
 import type {
   ServerDetectedMessage,
@@ -36,11 +34,14 @@ import type { AnalysisStep } from "@mapmyserver/shared";
 // ── State ──────────────────────────────────────
 
 let lastGuildId: string | null = null;
+let isCollecting = false;
+let sidebarObserver: MutationObserver | null = null;
+let mutationDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 // ── Initialization ─────────────────────────────
 
 function init() {
-  console.log("[Blueprint] Content script initialized");
+  console.log("[MapMyServer] Content script initialized");
 
   // Detect current server on load
   detectCurrentServer();
@@ -48,11 +49,14 @@ function init() {
   // Watch for SPA navigation (Discord doesn't reload pages)
   setupNavigationWatcher();
 
+  // Watch for DOM sidebar changes (Auto Live Reload on channel/category edits)
+  setupSidebarWatcher();
+
   // Listen for messages from background
   chrome.runtime.onMessage.addListener(handleMessage);
 }
 
-// ── Server Detection ───────────────────────────
+// ── Server Detection & Auto Sync ───────────────
 
 function detectCurrentServer() {
   const url = window.location.href;
@@ -81,20 +85,24 @@ function detectCurrentServer() {
           icon: serverInfo.icon,
         },
       };
-      chrome.runtime.sendMessage(msg);
+      chrome.runtime.sendMessage(msg).catch(() => {});
+
+      // Auto-collect structure on server switch!
+      setTimeout(() => {
+        collectStructure();
+      }, 500);
     }
+
+    // Re-attach sidebar observer for new server
+    setTimeout(setupSidebarWatcher, 1000);
   }
-
-
 }
 
 // ── Navigation Watcher ─────────────────────────
 
 function setupNavigationWatcher() {
-  // Watch for URL changes (Discord uses History API)
   let currentUrl = window.location.href;
 
-  // Use MutationObserver on the title element as a proxy for navigation
   const titleObserver = new MutationObserver(() => {
     if (window.location.href !== currentUrl) {
       currentUrl = window.location.href;
@@ -102,13 +110,11 @@ function setupNavigationWatcher() {
     }
   });
 
-  // Observe document title changes
   const titleEl = document.querySelector("title");
   if (titleEl) {
     titleObserver.observe(titleEl, { childList: true });
   }
 
-  // Also hook into history state changes
   const originalPushState = history.pushState;
   const originalReplaceState = history.replaceState;
 
@@ -126,18 +132,63 @@ function setupNavigationWatcher() {
     setTimeout(detectCurrentServer, 100);
   });
 
-  // Periodic check as a fallback (every 2 seconds)
   setInterval(() => {
     if (window.location.href !== currentUrl) {
       currentUrl = window.location.href;
       detectCurrentServer();
     }
-  }, 2000);
+  }, 1500);
+}
+
+// ── Auto Live Reload / Mutation Observer ───────
+
+function setupSidebarWatcher() {
+  if (sidebarObserver) {
+    sidebarObserver.disconnect();
+    sidebarObserver = null;
+  }
+
+  const sidebarContainer =
+    document.querySelector('nav[aria-label="Channels"]') ||
+    document.querySelector('nav[aria-label*="channel" i]') ||
+    document.querySelector('div[class*="sidebar"]') ||
+    document.querySelector('div[class*="channels"]');
+
+  if (!sidebarContainer) {
+    // Retry finding the container in a second
+    setTimeout(setupSidebarWatcher, 2000);
+    return;
+  }
+
+  sidebarObserver = new MutationObserver(() => {
+    if (isCollecting) return;
+
+    if (mutationDebounceTimer) {
+      clearTimeout(mutationDebounceTimer);
+    }
+
+    // Debounce live auto-update when user edits or adds channels/categories
+    mutationDebounceTimer = setTimeout(() => {
+      if (isOnDiscordServer(window.location.href)) {
+        console.log("[MapMyServer] Sidebar mutation detected, auto-updating blueprint...");
+        collectStructure();
+      }
+    }, 1200);
+  });
+
+  sidebarObserver.observe(sidebarContainer, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+  });
 }
 
 // ── Structure Collection ───────────────────────
 
 async function collectStructure() {
+  if (isCollecting) return;
+  isCollecting = true;
+
   try {
     const url = window.location.href;
 
@@ -157,6 +208,7 @@ async function collectStructure() {
         detail: "Could not identify server",
       });
       sendError("Could not identify the current Discord server");
+      isCollecting = false;
       return;
     }
 
@@ -167,17 +219,14 @@ async function collectStructure() {
       detail: serverInfo.name,
     });
 
-    // Small delay to let the DOM settle
-    await delay(500);
-
-    // Step 2: Parse channel sidebar
+    // Step 2: Parse channel sidebar (with virtual scroller sweep)
     sendProgress({
       id: "categories",
-      label: "Categories detected",
+      label: "Scanning channel sidebar...",
       status: "running",
     });
 
-    const structure = parseChannelSidebar();
+    const structure = await parseChannelSidebarAsync();
 
     sendProgress({
       id: "categories",
@@ -226,12 +275,14 @@ async function collectStructure() {
       },
     };
 
-    chrome.runtime.sendMessage(msg);
+    chrome.runtime.sendMessage(msg).catch(() => {});
   } catch (err) {
-    console.error("[Blueprint] Collection error:", err);
+    console.error("[MapMyServer] Collection error:", err);
     sendError(
       err instanceof Error ? err.message : "Unknown collection error"
     );
+  } finally {
+    isCollecting = false;
   }
 }
 
@@ -256,7 +307,6 @@ function handleMessage(
       break;
   }
 
-  // Return true to indicate async response
   return true;
 }
 
@@ -271,9 +321,7 @@ function sendNavigationChanged(
     type: "NAVIGATION_CHANGED",
     payload: { guildId, channelId, url },
   };
-  chrome.runtime.sendMessage(msg).catch(() => {
-    // Side panel/popup might not be open
-  });
+  chrome.runtime.sendMessage(msg).catch(() => {});
 }
 
 function sendProgress(step: AnalysisStep) {
@@ -292,18 +340,10 @@ function sendError(message: string) {
   chrome.runtime.sendMessage(msg).catch(() => {});
 }
 
-// ── Utilities ──────────────────────────────────
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 // ── Bootstrap ──────────────────────────────────
 
-// Wait for the page to be interactive before initializing
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", init);
 } else {
-  // Give Discord's React a moment to mount
   setTimeout(init, 1000);
 }

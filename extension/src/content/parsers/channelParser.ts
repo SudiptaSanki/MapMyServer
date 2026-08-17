@@ -1,11 +1,11 @@
 /* ─────────────────────────────────────────────
- *  Channel Parser
+ *  Channel Parser (with Virtual Scroller Support)
  *
  *  Extracts categories, channels, and threads
  *  from Discord's channel sidebar DOM.
  *
- *  Uses ARIA attributes, direct links, and
- *  semantic structure.
+ *  Supports large servers with virtualized DOM
+ *  scrollers by performing automated sweep scans.
  * ───────────────────────────────────────────── */
 
 import type {
@@ -31,132 +31,68 @@ export interface ParsedChannelStructure {
 }
 
 /**
- * Parse the entire channel sidebar and return structured data.
+ * Parses the channel sidebar, handling virtualized scrolling for large servers.
  */
-export function parseChannelSidebar(): ParsedChannelStructure {
+export async function parseChannelSidebarAsync(): Promise<ParsedChannelStructure> {
   const categories: Category[] = [];
   const channels: Channel[] = [];
   const threads: Thread[] = [];
 
-  // Strategy 1: Find all channel links (a[href*="/channels/"]) on the page
+  const processedIds = new Set<string>();
+  const state = {
+    currentCategory: null as Category | null,
+    categoryPosition: 0,
+    channelPosition: 0,
+  };
+
+  const channelNav = findChannelContainer();
+  const scroller = findScrollerElement();
+
+  if (channelNav) {
+    // Initial slice parse
+    parseVisibleSlice(channelNav, categories, channels, threads, processedIds, state);
+
+    // If the sidebar is virtualized and scrollable, perform a fast scan sweep
+    if (scroller && scroller.scrollHeight > scroller.clientHeight + 50) {
+      const initialScrollTop = scroller.scrollTop;
+      const step = Math.max(Math.floor(scroller.clientHeight * 0.75), 250);
+      const maxScroll = scroller.scrollHeight - scroller.clientHeight;
+
+      for (let pos = 0; pos <= maxScroll; pos += step) {
+        scroller.scrollTop = pos;
+        await delay(45);
+        parseVisibleSlice(channelNav, categories, channels, threads, processedIds, state);
+      }
+
+      // Bottom-most slice
+      scroller.scrollTop = maxScroll;
+      await delay(45);
+      parseVisibleSlice(channelNav, categories, channels, threads, processedIds, state);
+
+      // Restore user's scroll position
+      scroller.scrollTop = initialScrollTop;
+    }
+  }
+
+  // Fallback: Find all direct channel links on the page
   const channelLinks = Array.from(
     document.querySelectorAll('a[href*="/channels/"]')
   ).filter((a) => {
     const href = a.getAttribute("href") ?? "";
-    // Match /channels/{guildId}/{channelId}
     return /\/channels\/\d+\/\d+/.test(href);
   });
 
-  // Find the channel sidebar container
-  const channelNav = findChannelContainer();
-  
-  let currentCategory: Category | null = null;
-  let categoryPosition = 0;
-  let channelPosition = 0;
-  const processedIds = new Set<string>();
-
-  if (channelNav) {
-    // Walk container elements in DOM order
-    // Walk container elements in DOM order
-    const allElements = channelNav.querySelectorAll("*");
-
-    for (const el of allElements) {
-      if (!(el instanceof HTMLElement)) continue;
-
-      const elId = getElementIdentifier(el);
-      if (elId && processedIds.has(elId)) continue;
-
-      // ── Category Detection ─────────────────────
-      if (isCategoryElement(el)) {
-        const categoryName = extractCategoryName(el);
-        if (categoryName) {
-          const normalizedName = normalizeCategoryName(categoryName);
-          
-          // Check if this category was already detected
-          const existingCat = categories.find(
-            (c) => normalizeCategoryName(c.name) === normalizedName
-          );
-
-          if (existingCat) {
-            // Switch currentCategory context without creating a duplicate
-            currentCategory = existingCat;
-          } else {
-            const catId = `cat_${categoryPosition}_${slugify(categoryName)}`;
-            currentCategory = {
-              id: catId,
-              name: categoryName,
-              position: categoryPosition++,
-              channelIds: [],
-              visibility: makeVisibility(),
-            };
-            categories.push(currentCategory);
-          }
-
-          if (elId) processedIds.add(elId);
-        }
-        continue;
-      }
-
-      // ── Channel Detection ──────────────────────
-      const channelInfo = extractChannelInfo(el);
-      if (channelInfo && channelInfo.name) {
-        const chanId = channelInfo.id ?? `ch_${channelPosition}_${slugify(channelInfo.name)}`;
-        
-        // Prevent duplicate channel additions
-        if (channels.some(c => c.id === chanId || (c.name === channelInfo.name && c.parentId === (currentCategory?.id ?? null)))) {
-          continue;
-        }
-
-        const channel: Channel = {
-          id: chanId,
-          name: channelInfo.name,
-          type: channelInfo.type,
-          parentId: currentCategory?.id ?? null,
-          position: channelPosition++,
-          topic: channelInfo.topic,
-          visibility: makeVisibility(),
-        };
-        channels.push(channel);
-
-        if (currentCategory && !currentCategory.channelIds.includes(channel.id)) {
-          currentCategory.channelIds.push(channel.id);
-        }
-
-        if (elId) processedIds.add(elId);
-        continue;
-      }
-
-      // ── Thread Detection ───────────────────────
-      const threadInfo = extractThreadInfo(el);
-      if (threadInfo && threadInfo.name) {
-        const lastChannel = channels[channels.length - 1];
-        const threadId = threadInfo.id ?? `thread_${threads.length}_${slugify(threadInfo.name)}`;
-        
-        if (!threads.some(t => t.id === threadId)) {
-          const thread: Thread = {
-            id: threadId,
-            name: threadInfo.name,
-            parentId: lastChannel?.id ?? "__unknown__",
-            archived: false,
-            visibility: makeVisibility(),
-          };
-          threads.push(thread);
-          if (elId) processedIds.add(elId);
-        }
-      }
-    }
-  }
-
-  // Fallback: If channels list is empty or sparse, parse all <a> channel links directly
-  if (channels.length === 0 && channelLinks.length > 0) {
+  if (channelLinks.length > 0) {
     for (const link of channelLinks) {
       const href = link.getAttribute("href") ?? "";
       const idMatch = href.match(/\/channels\/\d+\/(\d+)/);
       const name = cleanChannelName(link.textContent?.trim() ?? "");
       if (!name) continue;
 
-      const chanId = idMatch?.[1] ?? `ch_${channelPosition}_${slugify(name)}`;
-      if (channels.some(c => c.id === chanId)) continue;
+      const chanId = idMatch?.[1] ?? `ch_${state.channelPosition}_${slugify(name)}`;
+      if (channels.some((c) => c.id === chanId || c.name.toLowerCase() === name.toLowerCase())) {
+        continue;
+      }
 
       const type = inferChannelTypeFromElement(link);
       channels.push({
@@ -164,7 +100,7 @@ export function parseChannelSidebar(): ParsedChannelStructure {
         name,
         type,
         parentId: null,
-        position: channelPosition++,
+        position: state.channelPosition++,
         visibility: makeVisibility(),
       });
     }
@@ -176,7 +112,7 @@ export function parseChannelSidebar(): ParsedChannelStructure {
     const activeUrl = window.location.href;
     const activeChanMatch = activeUrl.match(/\/channels\/\d+\/(\d+)/);
     if (activeChanMatch?.[1]) {
-      const activeChan = channels.find(c => c.id === activeChanMatch[1]);
+      const activeChan = channels.find((c) => c.id === activeChanMatch[1]);
       if (activeChan) {
         activeChan.topic = activeTopic;
       }
@@ -184,6 +120,146 @@ export function parseChannelSidebar(): ParsedChannelStructure {
   }
 
   return { categories, channels, threads };
+}
+
+/**
+ * Synchronous sidebar parser for fast checks.
+ */
+export function parseChannelSidebar(): ParsedChannelStructure {
+  const categories: Category[] = [];
+  const channels: Channel[] = [];
+  const threads: Thread[] = [];
+
+  const processedIds = new Set<string>();
+  const state = {
+    currentCategory: null as Category | null,
+    categoryPosition: 0,
+    channelPosition: 0,
+  };
+
+  const channelNav = findChannelContainer();
+  if (channelNav) {
+    parseVisibleSlice(channelNav, categories, channels, threads, processedIds, state);
+  }
+
+  return { categories, channels, threads };
+}
+
+// ── Slice Parsing Helper ───────────────────────
+
+function parseVisibleSlice(
+  channelNav: Element,
+  categories: Category[],
+  channels: Channel[],
+  threads: Thread[],
+  processedIds: Set<string>,
+  state: {
+    currentCategory: Category | null;
+    categoryPosition: number;
+    channelPosition: number;
+  }
+) {
+  const allElements = channelNav.querySelectorAll("*");
+
+  for (const el of allElements) {
+    if (!(el instanceof HTMLElement)) continue;
+
+    const elId = getElementIdentifier(el);
+    if (elId && processedIds.has(elId)) continue;
+
+    // ── Category Detection ─────────────────────
+    if (isCategoryElement(el)) {
+      const categoryName = extractCategoryName(el);
+      if (categoryName) {
+        const normalizedName = normalizeCategoryName(categoryName);
+
+        // Check if this category was already detected
+        const existingCat = categories.find(
+          (c) => normalizeCategoryName(c.name) === normalizedName
+        );
+
+        if (existingCat) {
+          state.currentCategory = existingCat;
+        } else {
+          const catId = `cat_${state.categoryPosition}_${slugify(categoryName)}`;
+          state.currentCategory = {
+            id: catId,
+            name: categoryName,
+            position: state.categoryPosition++,
+            channelIds: [],
+            visibility: makeVisibility(),
+          };
+          categories.push(state.currentCategory);
+        }
+
+        if (elId) processedIds.add(elId);
+      }
+      continue;
+    }
+
+    // ── Channel Detection ──────────────────────
+    const channelInfo = extractChannelInfo(el);
+    if (channelInfo && channelInfo.name) {
+      const chanId =
+        channelInfo.id ??
+        `ch_${state.channelPosition}_${slugify(channelInfo.name)}`;
+
+      // Prevent duplicate channel additions
+      const isDuplicate = channels.some(
+        (c) =>
+          c.id === chanId ||
+          (c.name.toLowerCase() === channelInfo.name.toLowerCase() &&
+            c.parentId === (state.currentCategory?.id ?? null))
+      );
+
+      if (isDuplicate) {
+        if (elId) processedIds.add(elId);
+        continue;
+      }
+
+      const channel: Channel = {
+        id: chanId,
+        name: channelInfo.name,
+        type: channelInfo.type,
+        parentId: state.currentCategory?.id ?? null,
+        position: state.channelPosition++,
+        topic: channelInfo.topic,
+        visibility: makeVisibility(),
+      };
+      channels.push(channel);
+
+      if (
+        state.currentCategory &&
+        !state.currentCategory.channelIds.includes(channel.id)
+      ) {
+        state.currentCategory.channelIds.push(channel.id);
+      }
+
+      if (elId) processedIds.add(elId);
+      continue;
+    }
+
+    // ── Thread Detection ───────────────────────
+    const threadInfo = extractThreadInfo(el);
+    if (threadInfo && threadInfo.name) {
+      const lastChannel = channels[channels.length - 1];
+      const threadId =
+        threadInfo.id ??
+        `thread_${threads.length}_${slugify(threadInfo.name)}`;
+
+      if (!threads.some((t) => t.id === threadId)) {
+        const thread: Thread = {
+          id: threadId,
+          name: threadInfo.name,
+          parentId: lastChannel?.id ?? "__unknown__",
+          archived: false,
+          visibility: makeVisibility(),
+        };
+        threads.push(thread);
+      }
+      if (elId) processedIds.add(elId);
+    }
+  }
 }
 
 // ── Active Channel Topic Helper ────────────────
@@ -204,7 +280,7 @@ function extractActiveChannelTopic(): string | null {
   return null;
 }
 
-// ── Container Detection ────────────────────────
+// ── Container & Scroller Detection ─────────────
 
 function findChannelContainer(): Element | null {
   const selectors = [
@@ -221,14 +297,32 @@ function findChannelContainer(): Element | null {
     if (el) return el;
   }
 
-  // Strategy 2: Look for sidebar with channel list items
-  const sidebar = document.querySelector('[class*="sidebar"] [class*="scroller"]');
+  const sidebar = document.querySelector(
+    '[class*="sidebar"] [class*="scroller"]'
+  );
   if (sidebar) return sidebar;
 
   return null;
 }
 
-// ── Category Detection ─────────────────────────
+function findScrollerElement(): HTMLElement | null {
+  const scrollerSelectors = [
+    '[class*="sidebar"] [class*="scrollerBase"]',
+    '[class*="sidebar"] [class*="scroller"]',
+    'nav[aria-label*="channel" i] [class*="scroller"]',
+    'div[class*="channels"] [class*="scroller"]',
+  ];
+
+  for (const sel of scrollerSelectors) {
+    const el = document.querySelector<HTMLElement>(sel);
+    if (el) return el;
+  }
+
+  const nav = findChannelContainer();
+  return (nav?.closest('[class*="scroller"]') as HTMLElement) || null;
+}
+
+// ── Category Detection Helpers ─────────────────
 
 function normalizeCategoryName(name: string): string {
   return name
@@ -240,8 +334,11 @@ function normalizeCategoryName(name: string): string {
 }
 
 function isCategoryElement(el: HTMLElement): boolean {
-  // If it's an anchor link or inside one, it's a channel, not a category
-  if (el.tagName === "A" || el.closest("a") || el.getAttribute("role") === "link") {
+  if (
+    el.tagName === "A" ||
+    el.closest("a") ||
+    el.getAttribute("role") === "link"
+  ) {
     return false;
   }
 
@@ -253,7 +350,9 @@ function isCategoryElement(el: HTMLElement): boolean {
   if (ariaLabel.toLowerCase().includes("category")) return true;
 
   if (
-    (ariaExpanded !== null || className.includes("category") || className.includes("Category")) &&
+    (ariaExpanded !== null ||
+      className.includes("category") ||
+      className.includes("Category")) &&
     text.length > 0 &&
     text.length < 60 &&
     !text.includes("#") &&
@@ -262,7 +361,12 @@ function isCategoryElement(el: HTMLElement): boolean {
     return true;
   }
 
-  if (el.tagName === "H3" && isUpperCaseText(text) && text.length < 60 && !text.includes("#")) {
+  if (
+    el.tagName === "H3" &&
+    isUpperCaseText(text) &&
+    text.length < 60 &&
+    !text.includes("#")
+  ) {
     return true;
   }
 
@@ -288,7 +392,7 @@ function extractCategoryName(el: HTMLElement): string | null {
   return name;
 }
 
-// ── Channel Detection ──────────────────────────
+// ── Channel Detection Helpers ──────────────────
 
 interface ChannelInfo {
   name: string;
@@ -335,7 +439,7 @@ function extractChannelInfo(el: HTMLElement): ChannelInfo | null {
   return null;
 }
 
-// ── Thread Detection ───────────────────────────
+// ── Thread Detection Helpers ───────────────────
 
 interface ThreadInfo {
   name: string;
@@ -433,4 +537,8 @@ function getElementIdentifier(el: HTMLElement): string | null {
   const text = el.textContent?.trim().slice(0, 30);
   if (text) return `${el.tagName}_${text}`;
   return null;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

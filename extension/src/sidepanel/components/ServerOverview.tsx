@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { useServerStore } from "@/store/serverStore";
 import { useUIStore } from "@/store/uiStore";
+import { generateAIPrompt } from "@/services/aiPromptGenerator";
 import AnalysisProgress from "./AnalysisProgress";
 import {
   Folder,
@@ -15,7 +17,10 @@ import {
   Search,
   Camera,
   Hammer,
-  AlertTriangle
+  AlertTriangle,
+  Sparkles,
+  Check,
+  Copy
 } from "lucide-react";
 
 const STAT_ITEMS = [
@@ -35,13 +40,38 @@ export default function ServerOverview() {
   const { currentServer, blueprint, isAnalyzing, analysisError, requestAnalysis } =
     useServerStore();
   const { setSelectedChannelId } = useUIStore();
+  const [copiedAI, setCopiedAI] = useState(false);
+  const [copiedTree, setCopiedTree] = useState(false);
+
+  const handleCopyAIPrompt = async () => {
+    if (!blueprint) return;
+    const prompt = generateAIPrompt(blueprint);
+    await navigator.clipboard.writeText(prompt);
+    setCopiedAI(true);
+    setTimeout(() => setCopiedAI(false), 2500);
+  };
+
+  const handleCopySimpleTree = async () => {
+    if (!blueprint) return;
+    let treeStr = `# ${blueprint.server.name}\n\n`;
+    for (const cat of blueprint.categories) {
+      treeStr += `📁 ${cat.name}\n`;
+      const catChannels = blueprint.channels.filter((c) => c.parentId === cat.id);
+      for (const ch of catChannels) {
+        treeStr += `  └── #${ch.name} (${ch.type})\n`;
+      }
+    }
+    await navigator.clipboard.writeText(treeStr);
+    setCopiedTree(true);
+    setTimeout(() => setCopiedTree(false), 2000);
+  };
 
   if (isAnalyzing) {
     return <AnalysisProgress />;
   }
 
   return (
-    <div className="flex flex-col gap-3 animate-fade-in">
+    <div className="flex flex-col gap-3 animate-fade-in pb-4">
       {/* Server Header */}
       <div className="glass-card p-4">
         <div className="flex items-center gap-3">
@@ -74,14 +104,14 @@ export default function ServerOverview() {
           </p>
         )}
 
-        {/* Analyze Button */}
+        {/* Action Button */}
         <button
           onClick={() => requestAnalysis()}
           disabled={isAnalyzing}
           className="btn-primary w-full mt-4 flex items-center justify-center gap-2"
         >
           <Search className="w-4 h-4" />
-          {blueprint ? "Re-analyze Server" : "Analyze Current Server"}
+          {blueprint ? "Re-scan / Refresh Server" : "Analyze Current Server"}
         </button>
 
         {analysisError && (
@@ -90,6 +120,41 @@ export default function ServerOverview() {
           </div>
         )}
       </div>
+
+      {/* AI Review Export Card */}
+      {blueprint && (
+        <div className="p-3 bg-gradient-to-r from-discord-blurple/20 via-surface-900 to-discord-fuchsia/10 border border-discord-blurple/40 rounded-xl shadow-lg flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 font-bold text-xs text-text-primary">
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              <span>AI Optimizer & Role Advisor</span>
+            </div>
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-discord-blurple/30 text-discord-blurple font-semibold">
+              ChatGPT / Claude / Gemini
+            </span>
+          </div>
+          <p className="text-[11px] text-text-muted leading-relaxed">
+            Copy the full blueprint prompt to ask AI for community architecture recommendations, role hierarchy, and onboarding improvements.
+          </p>
+          <div className="flex gap-2 mt-1">
+            <button
+              onClick={handleCopyAIPrompt}
+              className="btn-primary text-xs py-2 px-3 flex-1 flex items-center justify-center gap-1.5 shadow-md shadow-brand-500/20"
+            >
+              {copiedAI ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Sparkles className="w-3.5 h-3.5 text-amber-300" />}
+              <span>{copiedAI ? "Copied AI Prompt!" : "Copy for AI Optimizer"}</span>
+            </button>
+            <button
+              onClick={handleCopySimpleTree}
+              title="Copy simple Markdown tree"
+              className="btn-secondary text-xs py-2 px-3 flex items-center justify-center gap-1"
+            >
+              {copiedTree ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copiedTree ? "Copied!" : "Copy Tree"}</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Server Rules (First-Class Feature) */}
       {blueprint?.rules && blueprint.rules.rules.length > 0 && (

@@ -1,6 +1,7 @@
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 import { useServerStore } from "@/store/serverStore";
 import { useUIStore } from "@/store/uiStore";
+import { generateAIPrompt } from "@/services/aiPromptGenerator";
 import type { TreeNode, ChannelPurpose } from "@mapmyserver/shared";
 import FilterPanel from "./FilterPanel";
 import { 
@@ -17,7 +18,10 @@ import {
   Folder, 
   MessageCircle, 
   Server,
-  ChevronRight
+  ChevronRight,
+  Sparkles,
+  Check,
+  Copy
 } from "lucide-react";
 
 const PURPOSE_BADGE_STYLES: Record<ChannelPurpose, string> = {
@@ -50,6 +54,32 @@ export default function ServerTree() {
     selectedChannelId,
   } = useUIStore();
 
+  const [copiedAI, setCopiedAI] = useState(false);
+  const [copiedTree, setCopiedTree] = useState(false);
+
+  const handleCopyAIPrompt = async () => {
+    if (!blueprint) return;
+    const prompt = generateAIPrompt(blueprint);
+    await navigator.clipboard.writeText(prompt);
+    setCopiedAI(true);
+    setTimeout(() => setCopiedAI(false), 2500);
+  };
+
+  const handleCopySimpleTree = async () => {
+    if (!blueprint) return;
+    let treeStr = `# ${blueprint.server.name}\n\n`;
+    for (const cat of blueprint.categories) {
+      treeStr += `📁 ${cat.name}\n`;
+      const catChannels = blueprint.channels.filter((c) => c.parentId === cat.id);
+      for (const ch of catChannels) {
+        treeStr += `  └── #${ch.name} (${ch.type})\n`;
+      }
+    }
+    await navigator.clipboard.writeText(treeStr);
+    setCopiedTree(true);
+    setTimeout(() => setCopiedTree(false), 2000);
+  };
+
   const filteredTree = useMemo(() => {
     if (!tree) return null;
     return filterTree(tree, searchQuery, filters);
@@ -70,18 +100,37 @@ export default function ServerTree() {
 
   return (
     <div className="flex flex-col gap-2 animate-fade-in h-full relative pb-[100px]">
+      {/* Quick AI & Tree Copy Header */}
+      <div className="flex items-center gap-1.5 p-1 bg-surface-900/60 border border-surface-500/20 rounded-lg">
+        <button
+          onClick={handleCopyAIPrompt}
+          className="btn-primary text-[11px] py-1 px-2.5 flex-1 flex items-center justify-center gap-1 shadow-sm"
+        >
+          {copiedAI ? <Check className="w-3 h-3 text-emerald-300" /> : <Sparkles className="w-3 h-3 text-amber-300" />}
+          <span>{copiedAI ? "Copied AI Prompt!" : "Copy for AI Optimizer"}</span>
+        </button>
+        <button
+          onClick={handleCopySimpleTree}
+          title="Copy Markdown Tree"
+          className="btn-secondary text-[11px] py-1 px-2 flex items-center justify-center gap-1"
+        >
+          {copiedTree ? <Check className="w-3 h-3 text-emerald-300" /> : <Copy className="w-3 h-3" />}
+          <span>{copiedTree ? "Copied" : "Copy Tree"}</span>
+        </button>
+      </div>
+
       {/* Tree Controls */}
       <div className="flex items-center gap-2">
-        <button onClick={expandAll} className="btn-ghost flex items-center gap-1.5">
+        <button onClick={expandAll} className="btn-ghost flex items-center gap-1.5 text-xs">
           <Plus className="w-3.5 h-3.5" /> Expand All
         </button>
-        <button onClick={collapseAll} className="btn-ghost flex items-center gap-1.5">
+        <button onClick={collapseAll} className="btn-ghost flex items-center gap-1.5 text-xs">
           <Minus className="w-3.5 h-3.5" /> Collapse All
         </button>
         <div className="flex-1" />
         <button
           onClick={toggleFilterPanel}
-          className={`btn-ghost flex items-center gap-1.5 ${showFilterPanel ? "bg-surface-500/30 text-text-primary" : ""}`}
+          className={`btn-ghost flex items-center gap-1.5 text-xs ${showFilterPanel ? "bg-surface-500/30 text-text-primary" : ""}`}
         >
           <Filter className="w-3.5 h-3.5" /> Filter
         </button>

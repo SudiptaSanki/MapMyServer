@@ -23,11 +23,14 @@
 
 **MapMyServer** turns any Discord server into a structured, analyzable blueprint. Instead of manually browsing through dozens of categories and channels, you get:
 
-- A **collapsible tree** of the entire server hierarchy
+- A **collapsible tree** of the entire server hierarchy with category sub-divisions
 - A **node graph** (React Flow) showing how categories and channels connect
+- **🤖 One-Click AI Optimizer Export**: Generate ready-to-paste prompts for ChatGPT, Claude, or Gemini to audit your community architecture, suggest missing channels, and build a complete role & permission hierarchy
+- **⚡ Live Auto-Reload & Server Tracking**: Automatically tracks Discord sidebar edits in real-time and switches blueprints as you navigate between servers
+- **🌀 Virtualized Scroller Scanner**: Sweeps large Discord servers with 50+ categories to capture all off-screen channels
 - **Channel purpose classification** (Onboarding, Governance, Support, Events, etc.)
 - **Rich channel detail cards** with topics, instructions, templates, and rules
-- **Source tracking** — every piece of extracted data knows exactly where it came from
+- **Source tracking & Provenance** — every piece of extracted data knows exactly where it came from
 - **Statistics dashboard** with content coverage, purpose distribution, and structural metrics
 
 ---
@@ -41,12 +44,14 @@ You choose how deep you want to go. For standard structure mapping, **no develop
 | **Who is it for?** | **Everyone / Non-coders** | Community Architects, Admins & Developers |
 | **Setup Required** | **None.** Just load the extension and open Discord. | Paste Bot Token or OAuth credentials directly in Extension Settings ⚙️. |
 | **Do I need to edit code?** | ❌ No | ❌ No (configured directly in the UI). |
-| **Server Tree & Categories** | ✅ **Yes** — extracted directly from the sidebar. | ✅ **Yes** — fetched via official Discord API. |
+| **Server Tree & Categories** | ✅ **Yes** — extracted directly from sidebar. | ✅ **Yes** — fetched via official Discord API. |
+| **Large Server Support** | ✅ **Yes** — automated virtual scroller sweep. | ✅ **Complete** — all channels fetched in 1 request. |
+| **Live Auto-Reload** | ✅ **Yes** — tracks name changes & server switching. | ✅ **Yes** — fetches fresh data on demand. |
+| **AI Prompt Export** | ✅ **Yes** — 1-click export for ChatGPT/Claude/Gemini. | ✅ **Yes** — with complete role & permission matrix. |
 | **Channel Topics & Welcome Text** | ✅ **Yes** — reads what is visible on screen. | ✅ **Yes** — read from Discord channel objects. |
-| **Server Rules & Templates** | ✅ **Yes** — reads from `#rules` or `#introductions`. | ✅ **Yes** — read from channel history / system channels. |
+| **Server Rules & Templates** | ✅ **Yes** — reads from `#rules` or `#welcome`. | ✅ **Yes** — read from channel history / system channels. |
 | **Visible Roles** | ⚠️ Partial (roles visible on member cards). | ✅ **Complete** — all server roles, colors, and order. |
 | **Exact Permission Matrix** | ⚠️ Basic (what your account can see). | ✅ **Exact Bitfield Permissions** — full allow/deny rules per role. |
-| **Large Server Virtualization** | ⚠️ Scans visible rendered channels. | ✅ Instant complete list of 500+ channels in 1 request. |
 | **Need Discord Open in Tab?** | Yes, you must have Discord open in a browser tab. | No, can fetch data headlessly in the background. |
 
 ---
