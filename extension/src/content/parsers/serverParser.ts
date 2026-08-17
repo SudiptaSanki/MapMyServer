@@ -22,9 +22,13 @@ function makeVisibility(): VisibilityInfo {
  */
 export function extractGuildIdFromUrl(url: string): string | null {
   const match = url.match(
-    /discord(?:app)?\.com\/channels\/(\d{17,20})/
+    /discord(?:app)?\.com\/channels\/(\d{15,22})/
   );
-  return match?.[1] ?? null;
+  if (match?.[1]) return match[1];
+
+  // Fallback for general numeric ID in channels path
+  const fallbackMatch = url.match(/\/channels\/(\d+)/);
+  return fallbackMatch?.[1] ?? null;
 }
 
 /**
@@ -32,7 +36,7 @@ export function extractGuildIdFromUrl(url: string): string | null {
  */
 export function extractChannelIdFromUrl(url: string): string | null {
   const match = url.match(
-    /discord(?:app)?\.com\/channels\/\d{17,20}\/(\d{17,20})/
+    /discord(?:app)?\.com\/channels\/\d+\/(\d{15,22})/
   );
   return match?.[1] ?? null;
 }
@@ -51,12 +55,14 @@ export function isOnDiscordServer(url: string): boolean {
  */
 export function extractServerName(): string | null {
   // Strategy 1: Look for the server header button/element
-  // Discord typically has a header with the server name at the top of the sidebar
   const headerSelectors = [
-    // The server name is often in a clickable header at the top of the channel sidebar
     'h2[class*="name"]',
     '[class*="headerContent"] [class*="name"]',
     'header[class*="header"] [class*="name"]',
+    'header h1',
+    'header h2',
+    '[class*="guildName"]',
+    '[data-testid*="server-name"]',
   ];
 
   for (const selector of headerSelectors) {
@@ -67,44 +73,47 @@ export function extractServerName(): string | null {
   }
 
   // Strategy 2: Look for the server name via ARIA
-  const buttons = document.querySelectorAll('button[aria-label]');
+  const buttons = document.querySelectorAll('button[aria-label], div[aria-label]');
   for (const button of buttons) {
     const label = button.getAttribute("aria-label") ?? "";
-    // Discord server dropdowns often have aria-label matching the server name
     if (
       button.closest('[class*="sidebar"]') &&
       label.length > 0 &&
       label.length < 100 &&
       !label.toLowerCase().includes("channel") &&
-      !label.toLowerCase().includes("thread")
+      !label.toLowerCase().includes("thread") &&
+      !label.toLowerCase().includes("mute") &&
+      !label.toLowerCase().includes("deafen")
     ) {
-      // Check if this is in the header area (top of sidebar)
       const rect = button.getBoundingClientRect();
-      if (rect.top < 80) {
+      if (rect.top < 100) {
         return label;
       }
     }
   }
 
   // Strategy 3: Look for the guild name in the document title
-  // Discord's title is often "Server Name - Channel Name"
   const title = document.title;
   if (title.includes(" | Discord")) {
-    // "Discord | Server" or "#channel | Server | Discord"
     const parts = title.split(" | ");
     if (parts.length >= 3) {
       return parts[parts.length - 2]?.trim() ?? null;
+    } else if (parts.length === 2 && parts[0] && !parts[0].startsWith("#")) {
+      return parts[0].trim();
     }
+  }
+  if (title.includes(" - Discord")) {
+    const parts = title.split(" - ");
+    if (parts[0]) return parts[0].trim();
   }
 
   // Strategy 4: Look for a heading in the guild sidebar header area
-  const sidebar = document.querySelector('nav[aria-label="Servers sidebar"]');
+  const sidebar = document.querySelector('nav[aria-label*="Servers" i], nav[aria-label*="Guilds" i]');
   if (sidebar) {
-    const selectedServer = sidebar.querySelector('[aria-selected="true"]');
+    const selectedServer = sidebar.querySelector('[aria-selected="true"], [class*="selected"]');
     if (selectedServer) {
       const label = selectedServer.getAttribute("aria-label");
       if (label) {
-        // Often "ServerName (server)" pattern
         return label.replace(/\s*\(server\)\s*$/i, "").trim();
       }
     }
@@ -117,10 +126,9 @@ export function extractServerName(): string | null {
  * Try to extract the server icon URL.
  */
 export function extractServerIcon(): string | undefined {
-  // Look for the selected server icon in the server list
-  const serverList = document.querySelector('nav[aria-label="Servers sidebar"]');
+  const serverList = document.querySelector('nav[aria-label*="Servers" i], nav[aria-label*="Guilds" i]');
   if (serverList) {
-    const selected = serverList.querySelector('[aria-selected="true"] img');
+    const selected = serverList.querySelector('[aria-selected="true"] img, [class*="selected"] img');
     if (selected instanceof HTMLImageElement) {
       return selected.src;
     }
@@ -135,7 +143,7 @@ export function parseServerInfo(url: string): ServerInfo | null {
   const guildId = extractGuildIdFromUrl(url);
   if (!guildId) return null;
 
-  const name = extractServerName() ?? `Server ${guildId}`;
+  const name = extractServerName() ?? `Discord Server (${guildId.slice(0, 8)}…)`;
   const icon = extractServerIcon();
 
   return {

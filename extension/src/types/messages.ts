@@ -68,6 +68,10 @@ export interface RequestAnalysisMessage {
   };
 }
 
+export interface CheckActiveTabMessage {
+  type: "CHECK_ACTIVE_TAB";
+}
+
 export interface RequestBlueprintMessage {
   type: "REQUEST_BLUEPRINT";
   payload: {
@@ -141,6 +145,7 @@ export type BackgroundToContentMessage =
 
 export type UIToBackgroundMessage =
   | RequestAnalysisMessage
+  | CheckActiveTabMessage
   | RequestBlueprintMessage
   | SaveSnapshotMessage
   | RequestSnapshotsMessage

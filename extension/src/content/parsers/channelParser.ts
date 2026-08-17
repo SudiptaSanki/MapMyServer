@@ -4,11 +4,8 @@
  *  Extracts categories, channels, and threads
  *  from Discord's channel sidebar DOM.
  *
- *  Uses ARIA attributes and semantic structure
- *  rather than fragile CSS class names.
- *
- *  This is the module most likely to need
- *  maintenance when Discord updates its UI.
+ *  Uses ARIA attributes, direct links, and
+ *  semantic structure.
  * ───────────────────────────────────────────── */
 
 import type {
@@ -27,153 +24,192 @@ function makeVisibility(): VisibilityInfo {
   };
 }
 
-// ── Parsed Result ──────────────────────────────
-
 export interface ParsedChannelStructure {
   categories: Category[];
   channels: Channel[];
   threads: Thread[];
 }
 
-// ── Main Parser ────────────────────────────────
-
 /**
  * Parse the entire channel sidebar and return structured data.
- * This function finds the channel list and walks its elements
- * to identify categories, channels, and threads.
  */
 export function parseChannelSidebar(): ParsedChannelStructure {
   const categories: Category[] = [];
   const channels: Channel[] = [];
   const threads: Thread[] = [];
 
-  // Find the channel list container
+  // Strategy 1: Find all channel links (a[href*="/channels/"]) on the page
+  const channelLinks = Array.from(
+    document.querySelectorAll('a[href*="/channels/"]')
+  ).filter((a) => {
+    const href = a.getAttribute("href") ?? "";
+    // Match /channels/{guildId}/{channelId}
+    return /\/channels\/\d+\/\d+/.test(href);
+  });
+
+  // Find the channel sidebar container
   const channelNav = findChannelContainer();
-  if (!channelNav) {
-    console.warn("[Blueprint] Could not find channel sidebar");
-    return { categories, channels, threads };
-  }
-
-  // Walk the channel list
-  // Discord typically renders:
-  //   - Category headers as collapsible sections
-  //   - Channels as list items under categories
-  //   - Threads nested under channels or in separate sections
-
+  
   let currentCategory: Category | null = null;
   let categoryPosition = 0;
   let channelPosition = 0;
-
-  // Find all elements in the channel list
-  const allElements = channelNav.querySelectorAll("*");
-
   const processedIds = new Set<string>();
 
-  for (const el of allElements) {
-    if (!(el instanceof HTMLElement)) continue;
+  if (channelNav) {
+    // Walk container elements in DOM order
+    const allElements = channelNav.querySelectorAll("*");
 
-    // Skip already-processed elements
-    const elId = getElementIdentifier(el);
-    if (elId && processedIds.has(elId)) continue;
+    for (const el of allElements) {
+      if (!(el instanceof HTMLElement)) continue;
 
-    // ── Category Detection ─────────────────────
-    if (isCategoryElement(el)) {
-      const categoryName = extractCategoryName(el);
-      if (categoryName) {
-        const catId = `cat_${categoryPosition}_${slugify(categoryName)}`;
-        currentCategory = {
-          id: catId,
-          name: categoryName,
-          position: categoryPosition++,
-          channelIds: [],
+      const elId = getElementIdentifier(el);
+      if (elId && processedIds.has(elId)) continue;
+
+      // ── Category Detection ─────────────────────
+      if (isCategoryElement(el)) {
+        const categoryName = extractCategoryName(el);
+        if (categoryName) {
+          const catId = `cat_${categoryPosition}_${slugify(categoryName)}`;
+          currentCategory = {
+            id: catId,
+            name: categoryName,
+            position: categoryPosition++,
+            channelIds: [],
+            visibility: makeVisibility(),
+          };
+          categories.push(currentCategory);
+          if (elId) processedIds.add(elId);
+        }
+        continue;
+      }
+
+      // ── Channel Detection ──────────────────────
+      const channelInfo = extractChannelInfo(el);
+      if (channelInfo && channelInfo.name) {
+        const chanId = channelInfo.id ?? `ch_${channelPosition}_${slugify(channelInfo.name)}`;
+        
+        // Prevent duplicate channel additions
+        if (channels.some(c => c.id === chanId || (c.name === channelInfo.name && c.parentId === (currentCategory?.id ?? null)))) {
+          continue;
+        }
+
+        const channel: Channel = {
+          id: chanId,
+          name: channelInfo.name,
+          type: channelInfo.type,
+          parentId: currentCategory?.id ?? null,
+          position: channelPosition++,
+          topic: channelInfo.topic,
           visibility: makeVisibility(),
         };
-        categories.push(currentCategory);
+        channels.push(channel);
+
+        if (currentCategory) {
+          currentCategory.channelIds.push(channel.id);
+        }
+
         if (elId) processedIds.add(elId);
+        continue;
       }
-      continue;
-    }
 
-    // ── Channel Detection ──────────────────────
-    const channelInfo = extractChannelInfo(el);
-    if (channelInfo) {
-      const channel: Channel = {
-        id: channelInfo.id ?? `ch_${channelPosition}_${slugify(channelInfo.name)}`,
-        name: channelInfo.name,
-        type: channelInfo.type,
-        parentId: currentCategory?.id ?? null,
+      // ── Thread Detection ───────────────────────
+      const threadInfo = extractThreadInfo(el);
+      if (threadInfo && threadInfo.name) {
+        const lastChannel = channels[channels.length - 1];
+        const threadId = threadInfo.id ?? `thread_${threads.length}_${slugify(threadInfo.name)}`;
+        
+        if (!threads.some(t => t.id === threadId)) {
+          const thread: Thread = {
+            id: threadId,
+            name: threadInfo.name,
+            parentId: lastChannel?.id ?? "__unknown__",
+            archived: false,
+            visibility: makeVisibility(),
+          };
+          threads.push(thread);
+          if (elId) processedIds.add(elId);
+        }
+      }
+    }
+  }
+
+  // Fallback: If channels list is empty or sparse, parse all <a> channel links directly
+  if (channels.length === 0 && channelLinks.length > 0) {
+    for (const link of channelLinks) {
+      const href = link.getAttribute("href") ?? "";
+      const idMatch = href.match(/\/channels\/\d+\/(\d+)/);
+      const name = cleanChannelName(link.textContent?.trim() ?? "");
+      if (!name) continue;
+
+      const chanId = idMatch?.[1] ?? `ch_${channelPosition}_${slugify(name)}`;
+      if (channels.some(c => c.id === chanId)) continue;
+
+      const type = inferChannelTypeFromElement(link);
+      channels.push({
+        id: chanId,
+        name,
+        type,
+        parentId: null,
         position: channelPosition++,
-        topic: channelInfo.topic,
         visibility: makeVisibility(),
-      };
-      channels.push(channel);
-
-      if (currentCategory) {
-        currentCategory.channelIds.push(channel.id);
-      }
-
-      if (elId) processedIds.add(elId);
-      continue;
+      });
     }
+  }
 
-    // ── Thread Detection ───────────────────────
-    const threadInfo = extractThreadInfo(el);
-    if (threadInfo) {
-      const lastChannel = channels[channels.length - 1];
-      const thread: Thread = {
-        id: threadInfo.id ?? `thread_${threads.length}_${slugify(threadInfo.name)}`,
-        name: threadInfo.name,
-        parentId: lastChannel?.id ?? "__unknown__",
-        archived: false,
-        visibility: makeVisibility(),
-      };
-      threads.push(thread);
-      if (elId) processedIds.add(elId);
+  // Extract active channel topic from header if viewing a channel
+  const activeTopic = extractActiveChannelTopic();
+  if (activeTopic && channels.length > 0) {
+    const activeUrl = window.location.href;
+    const activeChanMatch = activeUrl.match(/\/channels\/\d+\/(\d+)/);
+    if (activeChanMatch?.[1]) {
+      const activeChan = channels.find(c => c.id === activeChanMatch[1]);
+      if (activeChan) {
+        activeChan.topic = activeTopic;
+      }
     }
   }
 
   return { categories, channels, threads };
 }
 
+// ── Active Channel Topic Helper ────────────────
+
+function extractActiveChannelTopic(): string | null {
+  const topicSelectors = [
+    '[class*="topic"]',
+    '[aria-label*="Topic" i]',
+    'div[data-testid*="channel-topic"]',
+  ];
+
+  for (const sel of topicSelectors) {
+    const el = document.querySelector(sel);
+    if (el?.textContent?.trim()) {
+      return el.textContent.trim();
+    }
+  }
+  return null;
+}
+
 // ── Container Detection ────────────────────────
 
 function findChannelContainer(): Element | null {
-  // Strategy 1: ARIA label
-  const ariaNav = document.querySelector(
-    'nav[aria-label="Channels"], nav[aria-label*="channel" i]'
-  );
-  if (ariaNav) return ariaNav;
+  const selectors = [
+    'nav[aria-label="Channels"]',
+    'nav[aria-label*="channel" i]',
+    'ul[aria-label*="Channels" i]',
+    'div[class*="sidebar"] nav',
+    'div[class*="channels"]',
+    'nav[class*="container"]',
+  ];
 
-  // Strategy 2: Role navigation with channel-related content
-  const navs = document.querySelectorAll('nav, [role="navigation"]');
-  for (const nav of navs) {
-    const text = nav.textContent ?? "";
-    // Check if this nav contains typical channel indicators
-    if (
-      text.includes("#") &&
-      (nav.querySelectorAll('[class*="channel"]').length > 0 ||
-        nav.querySelectorAll("li").length > 3)
-    ) {
-      return nav;
-    }
+  for (const sel of selectors) {
+    const el = document.querySelector(sel);
+    if (el) return el;
   }
 
-  // Strategy 3: Look for the sidebar by class patterns
-  const sidebar = document.querySelector(
-    '[class*="sidebar"] [class*="scroller"], [class*="channelList"]'
-  );
+  // Strategy 2: Look for sidebar with channel list items
+  const sidebar = document.querySelector('[class*="sidebar"] [class*="scroller"]');
   if (sidebar) return sidebar;
-
-  // Strategy 4: Broader search — find tree or list with many items
-  const trees = document.querySelectorAll('[role="tree"], [role="list"]');
-  for (const tree of trees) {
-    const items = tree.querySelectorAll(
-      '[role="treeitem"], [role="listitem"], li'
-    );
-    if (items.length > 3) {
-      return tree;
-    }
-  }
 
   return null;
 }
@@ -181,55 +217,33 @@ function findChannelContainer(): Element | null {
 // ── Category Detection ─────────────────────────
 
 function isCategoryElement(el: HTMLElement): boolean {
-  // Category headers are typically:
-  // - Elements with role="button" that toggle a section
-  // - ALL CAPS text
-  // - Have a collapse/expand icon
-
   const ariaLabel = el.getAttribute("aria-label") ?? "";
   const ariaExpanded = el.getAttribute("aria-expanded");
   const text = el.textContent?.trim() ?? "";
+  const className = typeof el.className === "string" ? el.className : "";
 
-  // Check for category-like patterns
   if (
-    ariaExpanded !== null &&
+    (ariaExpanded !== null || className.includes("category") || className.includes("Category")) &&
     text.length > 0 &&
     text.length < 50 &&
+    !text.includes("#") &&
     isUpperCaseText(text)
   ) {
     return true;
   }
 
-  // Check class-based hints
-  const className = el.className ?? "";
-  if (
-    typeof className === "string" &&
-    (className.includes("category") || className.includes("Category")) &&
-    text.length > 0
-  ) {
-    return true;
-  }
+  if (ariaLabel.toLowerCase().includes("category")) return true;
 
-  // Check for category ARIA pattern
-  if (
-    ariaLabel.toLowerCase().includes("category") ||
-    (el.tagName === "H3" && isUpperCaseText(text) && text.length < 50)
-  ) {
-    return true;
-  }
+  if (el.tagName === "H3" && isUpperCaseText(text) && text.length < 50) return true;
 
   return false;
 }
 
 function extractCategoryName(el: HTMLElement): string | null {
-  // Get text content, stripping any icon characters
   let name = el.textContent?.trim() ?? "";
-
-  // Remove leading/trailing decorations
   name = name.replace(/^[\s─—·•►▸▹▾▿▼▽◆◇○●■□]+/, "");
   name = name.replace(/[\s─—·•►▸▹▾▿▼▽◆◇○●■□]+$/, "");
   name = name.trim();
-
   if (name.length === 0 || name.length > 100) return null;
   return name;
 }
@@ -244,19 +258,13 @@ interface ChannelInfo {
 }
 
 function extractChannelInfo(el: HTMLElement): ChannelInfo | null {
-  // Channels are typically:
-  // - <a> or interactive elements with channel names
-  // - Have aria-label like "general, text channel" or "voice, voice channel"
-  // - Have a link/clickable element
-
   const ariaLabel = el.getAttribute("aria-label") ?? "";
   const text = el.textContent?.trim() ?? "";
 
-  // Strategy 1: ARIA label with channel type indicator
+  // Strategy 1: ARIA label
   if (ariaLabel.length > 0) {
     const channelType = detectChannelTypeFromAria(ariaLabel);
     if (channelType) {
-      // Extract name from aria-label (usually "name, type")
       const name = ariaLabel.split(",")[0]?.trim() ?? text;
       if (name.length > 0 && name.length < 100) {
         return {
@@ -268,41 +276,19 @@ function extractChannelInfo(el: HTMLElement): ChannelInfo | null {
     }
   }
 
-  // Strategy 2: Link elements with # prefix or channel patterns
-  if (
-    (el.tagName === "A" || el.getAttribute("role") === "link") &&
-    text.length > 0 &&
-    text.length < 100
-  ) {
+  // Strategy 2: Direct link to channel
+  if (el.tagName === "A" || el.getAttribute("role") === "link") {
     const href = el.getAttribute("href") ?? "";
     if (href.includes("/channels/")) {
       const type = inferChannelTypeFromElement(el);
-      return {
-        name: cleanChannelName(text),
-        type,
-        id: extractDiscordId(el) ?? extractChannelIdFromHref(href),
-      };
-    }
-  }
-
-  // Strategy 3: Class-based detection
-  const className = typeof el.className === "string" ? el.className : "";
-  if (
-    className.includes("channel") &&
-    !className.includes("category") &&
-    text.length > 0 &&
-    text.length < 100 &&
-    !isUpperCaseText(text)
-  ) {
-    // Make sure this isn't a category
-    const type = inferChannelTypeFromElement(el);
-    const name = cleanChannelName(text);
-    if (name.length > 0) {
-      return {
-        name,
-        type,
-        id: extractDiscordId(el),
-      };
+      const name = cleanChannelName(text);
+      if (name.length > 0 && name.length < 100) {
+        return {
+          name,
+          type,
+          id: extractDiscordId(el) ?? extractChannelIdFromHref(href),
+        };
+      }
     }
   }
 
@@ -320,24 +306,10 @@ function extractThreadInfo(el: HTMLElement): ThreadInfo | null {
   const ariaLabel = el.getAttribute("aria-label") ?? "";
   const text = el.textContent?.trim() ?? "";
 
-  // Threads typically have aria-label containing "thread"
   if (ariaLabel.toLowerCase().includes("thread") && text.length > 0) {
     const name = ariaLabel.split(",")[0]?.trim() ?? text;
     return {
       name: cleanChannelName(name),
-      id: extractDiscordId(el),
-    };
-  }
-
-  // Class-based thread detection
-  const className = typeof el.className === "string" ? el.className : "";
-  if (
-    className.includes("thread") &&
-    text.length > 0 &&
-    text.length < 100
-  ) {
-    return {
-      name: cleanChannelName(text),
       id: extractDiscordId(el),
     };
   }
@@ -349,48 +321,30 @@ function extractThreadInfo(el: HTMLElement): ThreadInfo | null {
 
 function detectChannelTypeFromAria(ariaLabel: string): ChannelType | null {
   const lower = ariaLabel.toLowerCase();
-
-  if (lower.includes("voice channel")) return "voice";
-  if (lower.includes("stage channel")) return "stage";
-  if (lower.includes("forum channel")) return "forum";
-  if (lower.includes("announcement channel")) return "announcement";
+  if (lower.includes("voice channel") || lower.includes(", voice")) return "voice";
+  if (lower.includes("stage channel") || lower.includes(", stage")) return "stage";
+  if (lower.includes("forum channel") || lower.includes(", forum")) return "forum";
+  if (lower.includes("announcement channel") || lower.includes(", announcement")) return "announcement";
   if (lower.includes("media channel")) return "media";
-  if (lower.includes("text channel")) return "text";
-
-  // Shortened patterns
-  if (lower.includes(", voice")) return "voice";
-  if (lower.includes(", stage")) return "stage";
-  if (lower.includes(", forum")) return "forum";
-
+  if (lower.includes("text channel") || lower.includes(", text")) return "text";
   return null;
 }
 
-function inferChannelTypeFromElement(el: HTMLElement): ChannelType {
-  // Check for voice/stage indicators
-  // Check for channel type indicators via class names
+function inferChannelTypeFromElement(el: Element): ChannelType {
+  const html = el.innerHTML.toLowerCase();
+  const aria = (el.getAttribute("aria-label") ?? "").toLowerCase();
 
-  // Voice channels typically have a speaker icon
-  if (el.querySelector('[class*="voice"], [class*="Voice"]')) return "voice";
-  if (el.querySelector('[class*="stage"], [class*="Stage"]')) return "stage";
-  if (el.querySelector('[class*="forum"], [class*="Forum"]')) return "forum";
+  if (aria.includes("voice") || html.includes("voice") || html.includes("speaker")) return "voice";
+  if (aria.includes("stage") || html.includes("stage")) return "stage";
+  if (aria.includes("forum") || html.includes("forum")) return "forum";
+  if (aria.includes("announcement") || html.includes("announcement")) return "announcement";
 
-  // Check parent for type hints
-  const parent = el.closest('[class*="voice"], [class*="stage"], [class*="forum"]');
-  if (parent) {
-    const parentClass = typeof parent.className === "string" ? parent.className : "";
-    if (parentClass.includes("voice")) return "voice";
-    if (parentClass.includes("stage")) return "stage";
-    if (parentClass.includes("forum")) return "forum";
-  }
-
-  // Default to text
   return "text";
 }
 
 // ── Utility Helpers ────────────────────────────
 
 function cleanChannelName(name: string): string {
-  // Remove common prefixes/indicators
   return name
     .replace(/^[#🔊🎤📋📢🖼️💬]\s*/, "")
     .replace(/\s*\(.*?\)\s*$/, "")
@@ -398,7 +352,6 @@ function cleanChannelName(name: string): string {
 }
 
 function isUpperCaseText(text: string): boolean {
-  // Check if the text is mostly uppercase (category indicator)
   const letters = text.replace(/[^a-zA-Z]/g, "");
   if (letters.length < 2) return false;
   const upperCount = (text.match(/[A-Z]/g) ?? []).length;
@@ -414,37 +367,30 @@ function slugify(text: string): string {
 }
 
 function extractDiscordId(el: HTMLElement): string | undefined {
-  // Try to find a Discord snowflake ID in data attributes or href
   const dataId = el.getAttribute("data-list-item-id");
-  if (dataId && /^\d{17,20}$/.test(dataId)) return dataId;
+  if (dataId) {
+    const numMatch = dataId.match(/\d{15,22}/);
+    if (numMatch) return numMatch[0];
+  }
 
-  // Check href
   const link = el.closest("a") ?? el.querySelector("a");
   if (link) {
     const id = extractChannelIdFromHref(link.getAttribute("href") ?? "");
     if (id) return id;
   }
 
-  // Check data-dnd-name or similar
-  for (const attr of el.attributes) {
-    if (/^\d{17,20}$/.test(attr.value)) return attr.value;
-  }
-
   return undefined;
 }
 
 function extractChannelIdFromHref(href: string): string | undefined {
-  const match = href.match(/\/channels\/\d+\/(\d{17,20})/);
+  const match = href.match(/\/channels\/\d+\/(\d{15,22})/);
   return match?.[1];
 }
 
 function getElementIdentifier(el: HTMLElement): string | null {
   const id = el.id || el.getAttribute("data-list-item-id");
   if (id) return id;
-
-  // Generate a pseudo-identifier from tag + text + position
   const text = el.textContent?.trim().slice(0, 30);
   if (text) return `${el.tagName}_${text}`;
-
   return null;
 }

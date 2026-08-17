@@ -4,7 +4,6 @@ import { useUIStore, type SidePanelTab } from "@/store/uiStore";
 import ServerOverview from "./components/ServerOverview";
 import ServerTree from "./components/ServerTree";
 import ServerGraph from "./components/ServerGraph";
-import ServerList from "./components/ServerList";
 import Statistics from "./components/Statistics";
 import ChangeHistory from "./components/ChangeHistory";
 import SearchBar from "./components/SearchBar";
@@ -20,18 +19,34 @@ const TABS: { id: SidePanelTab; label: string; icon: string }[] = [
 ];
 
 export default function App() {
-  const { currentServer, blueprint } = useServerStore();
+  const { currentServer, blueprint, checkActiveTab, requestAnalysis } = useServerStore();
   const { activeTab, setActiveTab, selectedChannelId } = useUIStore();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // On mount, request current server info from background
+  // On mount, actively check the current tab
   useEffect(() => {
+    checkActiveTab();
     chrome.runtime.sendMessage({ type: "REQUEST_SERVER_LIST" }).catch(() => {});
-  }, []);
+  }, [checkActiveTab]);
+
+  const isServerActive = currentServer.onDiscord || !!blueprint;
+  const serverName = blueprint?.server.name || currentServer.name;
+  const sourceName = blueprint?.server.visibility.source || (currentServer.onDiscord ? "page-visible" : "offline");
 
   const renderContent = () => {
-    if (!currentServer.onDiscord && !blueprint) {
-      return <NotOnDiscord onOpenSettings={() => setIsSettingsOpen(true)} />;
+    if (!isServerActive) {
+      return (
+        <NotOnDiscord
+          onDetect={async () => {
+            await checkActiveTab();
+            const state = useServerStore.getState();
+            if (state.currentServer.onDiscord) {
+              await requestAnalysis();
+            }
+          }}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+        />
+      );
     }
 
     switch (activeTab) {
@@ -50,12 +65,8 @@ export default function App() {
     }
   };
 
-  const isServerActive = currentServer.onDiscord || !!blueprint;
-  const serverName = blueprint?.server.name || currentServer.name;
-  const sourceName = blueprint?.server.visibility.source || (currentServer.onDiscord ? "page-visible" : "offline");
-
   return (
-    <div className="flex flex-col h-full bg-surface-800 relative">
+    <div className="flex flex-col h-full bg-surface-800 relative font-sans">
       {/* Header */}
       <header className="flex-shrink-0 px-4 py-3 border-b border-surface-500/30 bg-surface-800/90 backdrop-blur-sm">
         <div className="flex items-center justify-between">
@@ -67,13 +78,22 @@ export default function App() {
               MapMyServer
             </h1>
           </div>
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            title="Configure Settings & API"
-            className="w-7 h-7 rounded-lg bg-surface-700/60 hover:bg-surface-600 text-text-muted hover:text-text-primary flex items-center justify-center text-xs transition-colors"
-          >
-            ⚙️
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => checkActiveTab()}
+              title="Refresh / Re-detect active tab"
+              className="w-7 h-7 rounded-lg bg-surface-700/60 hover:bg-surface-600 text-text-muted hover:text-text-primary flex items-center justify-center text-xs transition-colors"
+            >
+              🔄
+            </button>
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              title="Configure Settings & API"
+              className="w-7 h-7 rounded-lg bg-surface-700/60 hover:bg-surface-600 text-text-muted hover:text-text-primary flex items-center justify-center text-xs transition-colors"
+            >
+              ⚙️
+            </button>
+          </div>
         </div>
 
         {isServerActive && serverName && (
@@ -138,37 +158,72 @@ export default function App() {
   );
 }
 
-function NotOnDiscord({ onOpenSettings }: { onOpenSettings: () => void }) {
+function NotOnDiscord({
+  onDetect,
+  onOpenSettings,
+}: {
+  onDetect: () => void;
+  onOpenSettings: () => void;
+}) {
   const { loadMockServer } = useServerStore();
+  const [isDetecting, setIsDetecting] = useState(false);
+
+  const handleDetectClick = async () => {
+    setIsDetecting(true);
+    await onDetect();
+    setIsDetecting(false);
+  };
 
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-6">
-      <div className="p-4 flex flex-col gap-4 w-full">
-        <ServerList />
-        <div className="flex flex-col items-center justify-center p-6 bg-surface-900 border border-surface-500/40 rounded-lg">
-          <div className="text-4xl mb-3">🧪</div>
-          <h3 className="text-base font-bold text-text-primary mb-1">Explore Community Blueprint</h3>
-          <p className="text-xs text-text-muted text-center mb-4 leading-relaxed">
-            Load the rich GDG Community model with onboarding templates, server rules, and instructions.
+    <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-4 animate-fade-in">
+      <div className="p-4 flex flex-col gap-4 w-full max-w-sm">
+        {/* Browser Mode Action Card */}
+        <div className="p-5 bg-surface-900 border border-discord-blurple/40 rounded-xl shadow-lg shadow-discord-blurple/10 flex flex-col items-center">
+          <div className="text-3xl mb-2">🔍</div>
+          <h3 className="text-sm font-bold text-text-primary mb-1">
+            Browser Mode (Zero Setup)
+          </h3>
+          <p className="text-xs text-text-secondary text-center mb-4 leading-relaxed">
+            Make sure your Discord tab is open in Chrome, then click below to scan the server structure.
           </p>
-          <div className="flex flex-col gap-2 w-full">
-            <button
-              onClick={loadMockServer}
-              className="px-4 py-2 bg-brand-500 hover:bg-brand-400 text-white text-xs font-semibold rounded-lg transition-colors w-full shadow-lg shadow-brand-500/20"
-            >
-              🧪 Load Rich Mock Community
-            </button>
-            <button
-              onClick={onOpenSettings}
-              className="px-4 py-2 bg-surface-800 hover:bg-surface-700 text-text-secondary hover:text-text-primary text-xs font-semibold rounded-lg transition-colors w-full border border-surface-500/30 flex items-center justify-center gap-1.5"
-            >
-              <span>⚙️</span> Configure API & Bot Mode
-            </button>
-          </div>
+          <button
+            onClick={handleDetectClick}
+            disabled={isDetecting}
+            className="btn-primary text-xs py-2 px-4 w-full flex items-center justify-center gap-2 shadow-md shadow-brand-500/20"
+          >
+            <span>{isDetecting ? "⏳" : "🔍"}</span>
+            {isDetecting ? "Scanning Active Tab..." : "Detect & Analyze Current Discord Tab"}
+          </button>
         </div>
+
+        {/* Demo Option */}
+        <div className="p-4 bg-surface-900/60 border border-surface-500/30 rounded-xl flex flex-col items-center">
+          <div className="text-2xl mb-1">🧪</div>
+          <h4 className="text-xs font-bold text-text-primary mb-1">
+            Want to see how it looks?
+          </h4>
+          <p className="text-[11px] text-text-muted text-center mb-3">
+            Load the rich GDG Community blueprint to test all Tree, Graph, and Detail features.
+          </p>
+          <button
+            onClick={loadMockServer}
+            className="px-3 py-1.5 bg-surface-700 hover:bg-surface-600 text-text-primary text-xs font-semibold rounded-lg transition-colors w-full border border-surface-500/20"
+          >
+            🧪 Load Rich Mock Community
+          </button>
+        </div>
+
+        {/* Settings button */}
+        <button
+          onClick={onOpenSettings}
+          className="text-xs text-text-muted hover:text-text-secondary transition-colors flex items-center justify-center gap-1"
+        >
+          <span>⚙️</span> Developer / Bot API Settings
+        </button>
       </div>
-      <div className="mt-2 text-xs text-text-muted/60 bg-surface-700/40 rounded-lg px-3 py-2">
-        <code>discord.com/channels/...</code>
+
+      <div className="text-[11px] text-text-muted/60 bg-surface-700/30 rounded-lg px-3 py-1.5 font-mono">
+        discord.com/channels/...
       </div>
     </div>
   );

@@ -63,6 +63,7 @@ interface ServerState {
   handleMessage: (message: ExtensionMessage) => void;
 
   // Chrome messaging actions
+  checkActiveTab: () => Promise<void>;
   requestAnalysis: () => Promise<void>;
   requestBlueprint: (serverId: string) => Promise<void>;
   saveSnapshot: (label?: string) => Promise<void>;
@@ -142,7 +143,6 @@ export const useServerStore = create<ServerState>((set, get) => ({
       const steps = state.analysisSteps.map((s) =>
         s.id === step.id ? step : s
       );
-      // If step isn't in the list, add it
       if (!steps.find((s) => s.id === step.id)) {
         steps.push(step);
       }
@@ -197,14 +197,32 @@ export const useServerStore = create<ServerState>((set, get) => ({
 
   // ── Chrome Messaging ─────────────────────────
 
+  checkActiveTab: async () => {
+    try {
+      const response = await chrome.runtime.sendMessage({ type: "CHECK_ACTIVE_TAB" });
+      if (response?.onDiscord && response?.guildId) {
+        get().setCurrentServer(
+          response.guildId,
+          response.name || `Server ${response.guildId.slice(0, 8)}…`,
+          true
+        );
+      }
+    } catch {
+      // Background might not be ready
+    }
+  },
+
   requestAnalysis: async () => {
     const state = get();
     state.startAnalysis();
 
     try {
-      await chrome.runtime.sendMessage({ type: "REQUEST_ANALYSIS" });
+      const response = await chrome.runtime.sendMessage({ type: "REQUEST_ANALYSIS" });
+      if (response?.status === "error") {
+        state.setAnalysisError(response.message || "Failed to start analysis");
+      }
     } catch (err) {
-      state.setAnalysisError("Failed to start analysis");
+      state.setAnalysisError("Failed to communicate with Discord tab");
     }
   },
 
@@ -263,7 +281,6 @@ export const useServerStore = create<ServerState>((set, get) => ({
   },
 
   loadMockServer: async () => {
-    // Dynamic import to avoid bundling mock data in the main thread unless requested
     const { MOCK_SERVER } = await import("@/services/mockServer");
     const state = get();
     state.setCurrentServer(MOCK_SERVER.server.id, MOCK_SERVER.server.name, true);
