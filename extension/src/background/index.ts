@@ -17,6 +17,15 @@ import type {
 } from "@/types/messages";
 
 import type { BlueprintSnapshot } from "@mapmyserver/shared";
+import { buildBlueprint } from "@/services/blueprintBuilder";
+import { 
+  saveBlueprint, 
+  loadBlueprint, 
+  saveSnapshot, 
+  loadSnapshots, 
+  generateSnapshotId,
+  listServers 
+} from "@/services/storageService";
 
 // ── State ──────────────────────────────────────
 
@@ -190,9 +199,6 @@ async function handleMessage(
     }
 
     case "STRUCTURE_COLLECTED": {
-      const { buildBlueprint } = await import("@/services/blueprintBuilder");
-      const { saveBlueprint } = await import("@/services/storageService");
-
       const blueprint = buildBlueprint({
         server: message.payload.server,
         categories: message.payload.categories,
@@ -288,17 +294,12 @@ async function handleMessage(
     }
 
     case "REQUEST_BLUEPRINT": {
-      const { loadBlueprint } = await import("@/services/storageService");
       const blueprint = await loadBlueprint(message.payload.serverId);
       sendResponse({ blueprint });
       break;
     }
 
     case "SAVE_SNAPSHOT": {
-      const { loadBlueprint, saveSnapshot, generateSnapshotId } = await import(
-        "@/services/storageService"
-      );
-
       const bp = await loadBlueprint(message.payload.serverId);
       if (bp) {
         const snapshot: BlueprintSnapshot = {
@@ -317,14 +318,12 @@ async function handleMessage(
     }
 
     case "REQUEST_SNAPSHOTS": {
-      const { loadSnapshots } = await import("@/services/storageService");
       const snapshots = await loadSnapshots(message.payload.serverId);
       sendResponse({ snapshots });
       break;
     }
 
     case "REQUEST_SERVER_LIST": {
-      const { listServers } = await import("@/services/storageService");
       const servers = await listServers();
       sendResponse({ servers });
       break;
