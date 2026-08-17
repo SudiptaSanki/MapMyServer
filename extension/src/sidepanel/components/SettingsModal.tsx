@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useServerStore } from "@/store/serverStore";
+import { Settings, Lightbulb, Save, X } from "lucide-react";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -55,17 +56,17 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       <div className="w-full max-w-md bg-surface-900 border border-surface-500/40 rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="p-4 border-b border-surface-500/30 bg-surface-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">⚙️</span>
+          <div className="flex items-center gap-2 text-text-primary">
+            <Settings className="w-5 h-5" />
             <h2 className="text-sm font-bold text-text-primary">
               MapMyServer Settings
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-lg bg-surface-700 hover:bg-surface-600 text-text-muted hover:text-text-primary flex items-center justify-center text-xs transition-colors"
+            className="w-7 h-7 rounded-lg bg-surface-700 hover:bg-surface-600 text-text-muted hover:text-text-primary flex items-center justify-center transition-colors"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -74,7 +75,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           {/* Mode Explanation */}
           <div className="p-3 rounded-lg bg-discord-blurple/10 border border-discord-blurple/30 space-y-1">
             <div className="font-semibold text-discord-blurple flex items-center gap-1.5">
-              <span>💡</span> Analysis Modes
+              <Lightbulb className="w-4 h-4" /> Analysis Modes
             </div>
             <p className="text-text-secondary leading-relaxed text-[11px]">
               <strong>Default Browser Mode:</strong> Works automatically on Discord web tabs with zero setup.<br/>
@@ -163,9 +164,9 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </button>
             <button
               onClick={handleSave}
-              className="btn-primary text-xs py-1.5 px-4"
+              className="btn-primary text-xs py-1.5 px-4 flex items-center gap-1.5"
             >
-              💾 Save Settings
+              <Save className="w-3.5 h-3.5" /> Save Settings
             </button>
           </div>
         </div>

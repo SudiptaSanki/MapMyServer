@@ -13,8 +13,45 @@ import {
 import "@xyflow/react/dist/style.css";
 import dagre from "dagre";
 import { useServerStore } from "@/store/serverStore";
-import { getChannelIcon } from "@/services/blueprintBuilder";
 import type { ServerBlueprint } from "@mapmyserver/shared";
+import { 
+  Server, 
+  Folder, 
+  Hash, 
+  Volume2, 
+  Mic, 
+  MessageSquare, 
+  Megaphone, 
+  Image as ImageIcon, 
+  MessageCircle,
+  Network
+} from "lucide-react";
+
+function getNodeIcon(type: string) {
+  const className = "w-4 h-4";
+  switch (type) {
+    case "text":
+      return <Hash className={`${className} text-[#b5bac1]`} />;
+    case "voice":
+      return <Volume2 className={`${className} text-[#57f287]`} />;
+    case "stage":
+      return <Mic className={`${className} text-[#eb459e]`} />;
+    case "forum":
+      return <MessageSquare className={`${className} text-[#fee75c]`} />;
+    case "announcement":
+      return <Megaphone className={`${className} text-[#f0b132]`} />;
+    case "media":
+      return <ImageIcon className={`${className} text-[#b5bac1]`} />;
+    case "category":
+      return <Folder className={`${className} text-[#949ba4]`} />;
+    case "thread":
+      return <MessageCircle className={`${className} text-[#b5bac1]`} />;
+    case "server":
+      return <Server className={`${className} text-[#5865f2]`} />;
+    default:
+      return <Hash className={`${className} text-[#949ba4]`} />;
+  }
+}
 
 // ── Layout Algorithm (Dagre) ───────────────────
 
@@ -65,8 +102,8 @@ function convertBlueprintToGraph(blueprint: ServerBlueprint) {
     type: "default",
     data: {
       label: (
-        <div className="flex items-center gap-2 font-bold p-1">
-          <span className="text-xl">🟣</span>
+        <div className="flex items-center gap-2 font-bold p-1 text-[#f2f3f5]">
+          <Server className="w-5 h-5 text-[#5865f2]" />
           <span className="truncate">{blueprint.server.name}</span>
         </div>
       ),
@@ -89,7 +126,7 @@ function convertBlueprintToGraph(blueprint: ServerBlueprint) {
       data: {
         label: (
           <div className="flex items-center gap-2 font-semibold text-xs uppercase text-[#b5bac1] p-1">
-            <span>📁</span>
+            <Folder className="w-4 h-4 text-[#949ba4]" />
             <span className="truncate">{cat.name}</span>
           </div>
         ),
@@ -118,7 +155,7 @@ function convertBlueprintToGraph(blueprint: ServerBlueprint) {
   blueprint.channels.forEach((chan) => {
     // If channel has no parent category, connect it to the server directly
     const parentId = chan.parentId || blueprint.server.id;
-    const icon = getChannelIcon(chan.type);
+    const icon = getNodeIcon(chan.type);
 
     let borderColor = "#3f4147";
     if (chan.type === "voice") borderColor = "#57f287";
@@ -186,7 +223,9 @@ export default function ServerGraph() {
   if (!blueprint) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 text-center p-6">
-        <div className="text-3xl">🕸️</div>
+        <div className="text-discord-blurple">
+          <Network className="w-8 h-8" />
+        </div>
         <p className="text-sm text-text-muted">
           Analyze a server to see its graph structure.
         </p>

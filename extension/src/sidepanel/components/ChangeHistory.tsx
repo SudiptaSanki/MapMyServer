@@ -1,5 +1,6 @@
 import { useServerStore } from "@/store/serverStore";
 import type { BlueprintSnapshot } from "@mapmyserver/shared";
+import { FileText, Camera, ArrowUp, ArrowDown, Minus } from "lucide-react";
 
 export default function ChangeHistory() {
   const { snapshots, blueprint, currentServer, saveSnapshot } =
@@ -8,7 +9,9 @@ export default function ChangeHistory() {
   if (!currentServer.guildId) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 text-center p-6">
-        <div className="text-3xl">📜</div>
+        <div className="text-discord-blurple">
+          <FileText className="w-8 h-8" />
+        </div>
         <p className="text-sm text-text-muted">
           Navigate to a server to see its history.
         </p>
@@ -17,7 +20,7 @@ export default function ChangeHistory() {
   }
 
   return (
-    <div className="flex flex-col gap-3 animate-fade-in">
+    <div className="flex flex-col gap-3 animate-fade-in pb-4">
       {/* Save Snapshot */}
       <div className="glass-card p-4">
         <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
@@ -29,9 +32,9 @@ export default function ChangeHistory() {
         <button
           onClick={() => saveSnapshot()}
           disabled={!blueprint}
-          className="btn-primary w-full"
+          className="btn-primary w-full flex items-center justify-center gap-2"
         >
-          📸 Save Current Snapshot
+          <Camera className="w-4 h-4" /> Save Current Snapshot
         </button>
       </div>
 
@@ -52,9 +55,11 @@ export default function ChangeHistory() {
           ))}
         </div>
       ) : (
-        <div className="text-center py-6">
-          <div className="text-2xl mb-2">📷</div>
-          <p className="text-xs text-text-muted">
+        <div className="text-center py-6 flex flex-col items-center">
+          <div className="text-text-muted/50 mb-3">
+            <Camera className="w-8 h-8" />
+          </div>
+          <p className="text-xs text-text-muted max-w-[200px]">
             No snapshots yet. Analyze and save to start tracking changes.
           </p>
         </div>
@@ -83,7 +88,7 @@ function SnapshotCard({
     : null;
 
   return (
-    <div className="glass-card p-3">
+    <div className="glass-card p-3 border border-surface-500/20 hover:border-surface-500/40 transition-colors">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           {isLatest && (
@@ -123,24 +128,34 @@ function SnapshotCard({
       {/* Diff */}
       {diff && diff.length > 0 && (
         <div className="mt-2 pt-2 border-t border-surface-500/20">
-          <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
+          <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1.5">
             Changes from previous
           </div>
-          {diff.map((change, i) => (
-            <div
-              key={i}
-              className={`text-xs ${
-                change.direction === "up"
-                  ? "text-discord-green"
-                  : change.direction === "down"
-                  ? "text-discord-red"
-                  : "text-text-muted"
-              }`}
-            >
-              {change.direction === "up" ? "↑" : change.direction === "down" ? "↓" : "="}{" "}
-              {change.label}: {change.from} → {change.to}
-            </div>
-          ))}
+          <div className="space-y-1">
+            {diff.map((change, i) => (
+              <div
+                key={i}
+                className={`text-xs flex items-center gap-1.5 ${
+                  change.direction === "up"
+                    ? "text-discord-green"
+                    : change.direction === "down"
+                    ? "text-discord-red"
+                    : "text-text-muted"
+                }`}
+              >
+                {change.direction === "up" ? (
+                  <ArrowUp className="w-3 h-3" />
+                ) : change.direction === "down" ? (
+                  <ArrowDown className="w-3 h-3" />
+                ) : (
+                  <Minus className="w-3 h-3" />
+                )}
+                <span>
+                  {change.label}: {change.from} → {change.to}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -149,9 +164,9 @@ function SnapshotCard({
 
 function MiniStat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="bg-surface-900/30 rounded-md py-1.5">
+    <div className="bg-surface-900/30 rounded-md py-1.5 border border-surface-500/10">
       <div className="text-sm font-bold text-text-primary">{value}</div>
-      <div className="text-[9px] text-text-muted uppercase">{label}</div>
+      <div className="text-[9px] text-text-muted uppercase tracking-wider">{label}</div>
     </div>
   );
 }

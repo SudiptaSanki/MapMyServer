@@ -5,6 +5,7 @@ import {
   type DerivedStatistics,
 } from "@/services/statisticsCalculator";
 import type { ChannelPurpose } from "@mapmyserver/shared";
+import { LineChart } from "lucide-react";
 
 const PURPOSE_COLORS: Record<ChannelPurpose, string> = {
   ONBOARDING: "#10b981",
@@ -32,7 +33,9 @@ export default function Statistics() {
   if (!blueprint || !derivedStats) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 text-center p-6">
-        <div className="text-3xl">📈</div>
+        <div className="text-discord-blurple">
+          <LineChart className="w-8 h-8" />
+        </div>
         <p className="text-sm text-text-muted">
           Analyze a server to see detailed statistics.
         </p>

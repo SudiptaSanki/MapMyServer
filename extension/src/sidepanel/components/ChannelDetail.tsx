@@ -1,8 +1,24 @@
 import { useState } from "react";
 import { useServerStore } from "@/store/serverStore";
 import { useUIStore } from "@/store/uiStore";
-import { getChannelIcon } from "@/services/blueprintBuilder";
 import type { Channel, ExtractedContent, ChannelPurpose } from "@mapmyserver/shared";
+import { 
+  X, 
+  Target, 
+  MessageCircle, 
+  Hand, 
+  FileText, 
+  ClipboardList, 
+  Scale, 
+  Pin, 
+  ShieldCheck,
+  Hash,
+  Volume2,
+  Mic,
+  MessageSquare,
+  Megaphone,
+  Image as ImageIcon
+} from "lucide-react";
 
 const PURPOSE_COLORS: Record<ChannelPurpose, { bg: string; text: string; border: string }> = {
   ONBOARDING: { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/30" },
@@ -18,6 +34,26 @@ const PURPOSE_COLORS: Record<ChannelPurpose, { bg: string; text: string; border:
   FEEDBACK: { bg: "bg-orange-500/10", text: "text-orange-400", border: "border-orange-500/30" },
   OTHER: { bg: "bg-zinc-500/10", text: "text-zinc-400", border: "border-zinc-500/30" },
 };
+
+function getChannelIcon(type: string) {
+  const className = "w-5 h-5";
+  switch (type) {
+    case "text":
+      return <Hash className={`${className} text-channel-text`} />;
+    case "voice":
+      return <Volume2 className={`${className} text-channel-voice`} />;
+    case "stage":
+      return <Mic className={`${className} text-channel-stage`} />;
+    case "forum":
+      return <MessageSquare className={`${className} text-channel-forum`} />;
+    case "announcement":
+      return <Megaphone className={`${className} text-channel-announcement`} />;
+    case "media":
+      return <ImageIcon className={`${className} text-channel-text`} />;
+    default:
+      return <Hash className={`${className} text-text-muted`} />;
+  }
+}
 
 export default function ChannelDetail() {
   const { blueprint } = useServerStore();
@@ -50,12 +86,12 @@ export default function ChannelDetail() {
         {/* Header */}
         <div className="p-4 border-b border-surface-500/30 bg-surface-800/80 flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-xl flex-shrink-0">
+            <span className="flex-shrink-0 flex items-center justify-center">
               {getChannelIcon(channel.type)}
             </span>
             <div className="min-w-0">
               <h2 className="text-base font-bold text-text-primary truncate">
-                #{channel.name}
+                {channel.name}
               </h2>
               <div className="flex items-center gap-2 text-xs text-text-muted">
                 <span>{parentCategory?.name || "Uncategorized"}</span>
@@ -68,7 +104,7 @@ export default function ChannelDetail() {
             onClick={() => setSelectedChannelId(null)}
             className="w-8 h-8 rounded-lg bg-surface-700/60 hover:bg-surface-600 text-text-muted hover:text-text-primary flex items-center justify-center transition-colors text-sm"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -80,7 +116,7 @@ export default function ChannelDetail() {
               className={`p-3 rounded-lg border flex items-center justify-between ${purposeStyle.bg} ${purposeStyle.border}`}
             >
               <div className="flex items-center gap-2">
-                <span className="text-base">🎯</span>
+                <Target className="w-5 h-5 text-current opacity-80" />
                 <div>
                   <div className="text-[10px] font-semibold tracking-wider uppercase text-text-muted">
                     Channel Purpose
@@ -100,9 +136,9 @@ export default function ChannelDetail() {
           {channel.topic && (
             <div className="glass-card p-3">
               <div className="text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                <span>💬</span> Channel Topic
+                <MessageCircle className="w-3.5 h-3.5" /> Channel Topic
               </div>
-              <p className="text-text-primary text-xs leading-relaxed bg-surface-800/80 p-2.5 rounded border border-surface-500/30">
+              <p className="text-text-primary text-xs leading-relaxed bg-surface-800/80 p-2.5 rounded border border-surface-500/30 whitespace-pre-wrap">
                 {channel.topic}
               </p>
             </div>
@@ -113,7 +149,7 @@ export default function ChannelDetail() {
             <div className="glass-card p-3">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
-                  <span>👋</span> Welcome Message
+                  <Hand className="w-3.5 h-3.5" /> Welcome Message
                 </span>
                 <button
                   onClick={() =>
@@ -134,7 +170,7 @@ export default function ChannelDetail() {
           {channel.content?.instructions && channel.content.instructions.length > 0 && (
             <div className="glass-card p-3">
               <div className="text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <span>📜</span> Channel Instructions
+                <FileText className="w-3.5 h-3.5" /> Channel Instructions
               </div>
               <ul className="space-y-1.5">
                 {channel.content.instructions.map((inst, i) => (
@@ -162,7 +198,7 @@ export default function ChannelDetail() {
             <div className="glass-card p-3">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
-                  <span>📋</span> Suggested Template
+                  <ClipboardList className="w-3.5 h-3.5" /> Suggested Template
                 </span>
                 <button
                   onClick={() =>
@@ -183,7 +219,7 @@ export default function ChannelDetail() {
           {channel.content?.rules && channel.content.rules.length > 0 && (
             <div className="glass-card p-3">
               <div className="text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <span>⚖️</span> Channel & Server Rules
+                <Scale className="w-3.5 h-3.5" /> Channel & Server Rules
               </div>
               <div className="space-y-2">
                 {channel.content.rules.map((rule, idx) => (
@@ -210,7 +246,7 @@ export default function ChannelDetail() {
           {channel.content?.pinnedMessages && channel.content.pinnedMessages.length > 0 && (
             <div className="glass-card p-3">
               <div className="text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <span>📌</span> Pinned Content
+                <Pin className="w-3.5 h-3.5" /> Pinned Content
               </div>
               <div className="space-y-2">
                 {channel.content.pinnedMessages.map((pinned, idx) => (
@@ -237,7 +273,7 @@ export default function ChannelDetail() {
           {channelThreads.length > 0 && (
             <div className="glass-card p-3">
               <div className="text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <span>💬</span> Active Threads ({channelThreads.length})
+                <MessageCircle className="w-3.5 h-3.5" /> Active Threads ({channelThreads.length})
               </div>
               <div className="space-y-1.5">
                 {channelThreads.map((t) => (
@@ -278,14 +314,14 @@ export default function ChannelDetail() {
         {activeProvenance && (
           <div className="p-3 bg-surface-950 border-t border-surface-500/40 text-xs animate-fade-in">
             <div className="flex items-center justify-between mb-2">
-              <span className="font-bold text-discord-blurple uppercase tracking-wider text-[10px]">
-                🛡️ Data Provenance & Source
+              <span className="font-bold text-discord-blurple uppercase tracking-wider text-[10px] flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5" /> Data Provenance & Source
               </span>
               <button
                 onClick={() => setActiveProvenance(null)}
-                className="text-[10px] text-text-muted hover:text-text-primary"
+                className="text-[10px] text-text-muted hover:text-text-primary flex items-center gap-1"
               >
-                Close ✕
+                Close <X className="w-3 h-3" />
               </button>
             </div>
             <div className="space-y-1 font-mono text-[11px] text-text-muted bg-surface-900 p-2 rounded border border-surface-500/30">

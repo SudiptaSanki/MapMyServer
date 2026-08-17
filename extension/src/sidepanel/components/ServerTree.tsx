@@ -1,9 +1,24 @@
 import { useMemo, useCallback } from "react";
 import { useServerStore } from "@/store/serverStore";
 import { useUIStore } from "@/store/uiStore";
-import { getChannelIcon } from "@/services/blueprintBuilder";
 import type { TreeNode, ChannelPurpose } from "@mapmyserver/shared";
 import FilterPanel from "./FilterPanel";
+import { 
+  FolderTree, 
+  Plus, 
+  Minus, 
+  Filter, 
+  Hash, 
+  Volume2, 
+  Mic, 
+  MessageSquare, 
+  Megaphone, 
+  Image as ImageIcon, 
+  Folder, 
+  MessageCircle, 
+  Server,
+  ChevronRight
+} from "lucide-react";
 
 const PURPOSE_BADGE_STYLES: Record<ChannelPurpose, string> = {
   ONBOARDING: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
@@ -43,7 +58,9 @@ export default function ServerTree() {
   if (!blueprint || !tree) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 text-center p-6">
-        <div className="text-3xl">🌳</div>
+        <div className="text-discord-blurple">
+          <FolderTree className="w-8 h-8" />
+        </div>
         <p className="text-sm text-text-muted">
           Analyze a server to see its structure tree.
         </p>
@@ -52,28 +69,28 @@ export default function ServerTree() {
   }
 
   return (
-    <div className="flex flex-col gap-2 animate-fade-in">
+    <div className="flex flex-col gap-2 animate-fade-in h-full relative pb-[100px]">
       {/* Tree Controls */}
       <div className="flex items-center gap-2">
-        <button onClick={expandAll} className="btn-ghost">
-          ➕ Expand All
+        <button onClick={expandAll} className="btn-ghost flex items-center gap-1.5">
+          <Plus className="w-3.5 h-3.5" /> Expand All
         </button>
-        <button onClick={collapseAll} className="btn-ghost">
-          ➖ Collapse All
+        <button onClick={collapseAll} className="btn-ghost flex items-center gap-1.5">
+          <Minus className="w-3.5 h-3.5" /> Collapse All
         </button>
         <div className="flex-1" />
         <button
           onClick={toggleFilterPanel}
-          className={`btn-ghost ${showFilterPanel ? "bg-surface-500/30" : ""}`}
+          className={`btn-ghost flex items-center gap-1.5 ${showFilterPanel ? "bg-surface-500/30 text-text-primary" : ""}`}
         >
-          🔧 Filter
+          <Filter className="w-3.5 h-3.5" /> Filter
         </button>
       </div>
 
       {showFilterPanel && <FilterPanel />}
 
       {/* Tree */}
-      <div className="glass-card p-2 overflow-y-auto max-h-[calc(100vh-260px)]">
+      <div className="glass-card p-2 overflow-y-auto flex-1">
         {filteredTree ? (
           <TreeNodeComponent
             node={filteredTree}
@@ -102,6 +119,32 @@ interface TreeNodeProps {
   searchQuery: string;
   onSelectChannel: (id: string) => void;
   selectedChannelId: string | null;
+}
+
+function getNodeIcon(type: string) {
+  const className = "w-4 h-4";
+  switch (type) {
+    case "text":
+      return <Hash className={`${className} text-channel-text`} />;
+    case "voice":
+      return <Volume2 className={`${className} text-channel-voice`} />;
+    case "stage":
+      return <Mic className={`${className} text-channel-stage`} />;
+    case "forum":
+      return <MessageSquare className={`${className} text-channel-forum`} />;
+    case "announcement":
+      return <Megaphone className={`${className} text-channel-announcement`} />;
+    case "media":
+      return <ImageIcon className={`${className} text-channel-text`} />;
+    case "category":
+      return <Folder className={`${className} text-text-muted`} />;
+    case "thread":
+      return <MessageCircle className={`${className} text-text-secondary`} />;
+    case "server":
+      return <Server className={`${className} text-discord-blurple`} />;
+    default:
+      return <Hash className={`${className} text-text-muted`} />;
+  }
 }
 
 function TreeNodeComponent({
@@ -134,7 +177,7 @@ function TreeNodeComponent({
     [hasChildren, isChannel, node.id, toggleNode, onSelectChannel]
   );
 
-  const icon = getChannelIcon(node.type);
+  const icon = getNodeIcon(node.type);
 
   return (
     <div>
@@ -148,17 +191,17 @@ function TreeNodeComponent({
         {/* Expand/Collapse Arrow */}
         {hasChildren && (
           <span
-            className={`text-[10px] text-text-muted transition-transform duration-200 select-none ${
+            className={`text-text-muted transition-transform duration-200 select-none ${
               isExpanded ? "rotate-90" : ""
             }`}
           >
-            ▶
+            <ChevronRight className="w-3.5 h-3.5" />
           </span>
         )}
-        {!hasChildren && <span className="w-3" />}
+        {!hasChildren && <span className="w-3.5" />}
 
         {/* Icon */}
-        <span className="text-sm flex-shrink-0">{icon}</span>
+        <span className="flex-shrink-0 flex items-center justify-center">{icon}</span>
 
         {/* Name */}
         <span

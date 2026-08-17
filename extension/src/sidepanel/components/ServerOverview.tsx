@@ -1,18 +1,34 @@
 import { useServerStore } from "@/store/serverStore";
 import { useUIStore } from "@/store/uiStore";
 import AnalysisProgress from "./AnalysisProgress";
+import {
+  Folder,
+  Hash,
+  Volume2,
+  Mic,
+  MessageSquare,
+  Megaphone,
+  MessageCircle,
+  Users,
+  FileText,
+  Server,
+  Search,
+  Camera,
+  Hammer,
+  AlertTriangle
+} from "lucide-react";
 
 const STAT_ITEMS = [
-  { key: "categories", label: "Categories", icon: "📁", color: "text-text-primary" },
-  { key: "textChannels", label: "Text Channels", icon: "📝", color: "text-channel-text" },
-  { key: "voiceChannels", label: "Voice Channels", icon: "🔊", color: "text-channel-voice" },
-  { key: "stageChannels", label: "Stage Channels", icon: "🎤", color: "text-channel-stage" },
-  { key: "forumChannels", label: "Forum Channels", icon: "📋", color: "text-channel-forum" },
-  { key: "announcementChannels", label: "Announcements", icon: "📢", color: "text-channel-announcement" },
-  { key: "threads", label: "Threads", icon: "💬", color: "text-text-secondary" },
-  { key: "roles", label: "Roles", icon: "👥", color: "text-discord-fuchsia" },
-  { key: "channelsWithTopics", label: "With Topics", icon: "💬", color: "text-emerald-400" },
-  { key: "channelsWithContent", label: "With Instructions", icon: "📜", color: "text-amber-400" },
+  { key: "categories", label: "Categories", icon: <Folder className="w-4 h-4" />, color: "text-text-primary" },
+  { key: "textChannels", label: "Text Channels", icon: <Hash className="w-4 h-4" />, color: "text-channel-text" },
+  { key: "voiceChannels", label: "Voice Channels", icon: <Volume2 className="w-4 h-4" />, color: "text-channel-voice" },
+  { key: "stageChannels", label: "Stage Channels", icon: <Mic className="w-4 h-4" />, color: "text-channel-stage" },
+  { key: "forumChannels", label: "Forum Channels", icon: <MessageSquare className="w-4 h-4" />, color: "text-channel-forum" },
+  { key: "announcementChannels", label: "Announcements", icon: <Megaphone className="w-4 h-4" />, color: "text-channel-announcement" },
+  { key: "threads", label: "Threads", icon: <MessageCircle className="w-4 h-4" />, color: "text-text-secondary" },
+  { key: "roles", label: "Roles", icon: <Users className="w-4 h-4" />, color: "text-discord-fuchsia" },
+  { key: "channelsWithTopics", label: "With Topics", icon: <MessageCircle className="w-4 h-4" />, color: "text-emerald-400" },
+  { key: "channelsWithContent", label: "With Instructions", icon: <FileText className="w-4 h-4" />, color: "text-amber-400" },
 ] as const;
 
 export default function ServerOverview() {
@@ -29,8 +45,8 @@ export default function ServerOverview() {
       {/* Server Header */}
       <div className="glass-card p-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-discord-blurple to-discord-fuchsia/60 flex items-center justify-center text-lg shadow-lg shadow-discord-blurple/10">
-            🟣
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-discord-blurple to-discord-fuchsia/60 flex items-center justify-center text-white shadow-lg shadow-discord-blurple/10">
+            <Server className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="text-base font-semibold text-text-primary truncate">
@@ -44,8 +60,8 @@ export default function ServerOverview() {
                 {blueprint?.server.visibility.source || "page-visible"}
               </span>
               {blueprint?.server.memberCount && (
-                <span className="text-[10px] text-text-muted font-mono">
-                  👥 {blueprint.server.memberCount.toLocaleString()} members
+                <span className="text-[10px] text-text-muted font-mono flex items-center gap-1">
+                  <Users className="w-3 h-3" /> {blueprint.server.memberCount.toLocaleString()} members
                 </span>
               )}
             </div>
@@ -62,15 +78,15 @@ export default function ServerOverview() {
         <button
           onClick={() => requestAnalysis()}
           disabled={isAnalyzing}
-          className="btn-primary w-full mt-4"
+          className="btn-primary w-full mt-4 flex items-center justify-center gap-2"
         >
-          <span>🔍</span>
+          <Search className="w-4 h-4" />
           {blueprint ? "Re-analyze Server" : "Analyze Current Server"}
         </button>
 
         {analysisError && (
-          <div className="mt-2 px-3 py-2 rounded-lg bg-discord-red/10 border border-discord-red/20 text-xs text-discord-red">
-            ⚠ {analysisError}
+          <div className="mt-2 px-3 py-2 rounded-lg bg-discord-red/10 border border-discord-red/20 text-xs text-discord-red flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" /> {analysisError}
           </div>
         )}
       </div>
@@ -80,7 +96,7 @@ export default function ServerOverview() {
         <div className="glass-card p-3 border-amber-500/30">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-              <span>📜</span> Server Rules ({blueprint.rules.rules.length})
+              <FileText className="w-3.5 h-3.5" /> Server Rules ({blueprint.rules.rules.length})
             </span>
             {blueprint.rules.sourceChannelId && (
               <button
@@ -116,12 +132,12 @@ export default function ServerOverview() {
               if (typeof value !== "number" || value === 0) return null;
 
               return (
-                <div key={item.key} className="metric-card">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-base">{item.icon}</span>
-                    <span className={`metric-value ${item.color}`}>{value}</span>
+                <div key={item.key} className="metric-card flex flex-col p-2 bg-surface-900 border border-surface-500/20 rounded-lg">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`${item.color}`}>{item.icon}</span>
+                    <span className={`text-sm font-bold ${item.color}`}>{value}</span>
                   </div>
-                  <span className="metric-label">{item.label}</span>
+                  <span className="text-[10px] text-text-muted uppercase tracking-wider">{item.label}</span>
                 </div>
               );
             })}
@@ -144,9 +160,9 @@ export default function ServerOverview() {
           <div className="flex gap-2">
             <button
               onClick={() => useServerStore.getState().saveSnapshot()}
-              className="btn-secondary flex-1"
+              className="btn-secondary flex-1 flex items-center justify-center gap-2"
             >
-              📸 Save Snapshot
+              <Camera className="w-4 h-4" /> Save Snapshot
             </button>
           </div>
         </>
@@ -154,9 +170,11 @@ export default function ServerOverview() {
 
       {/* Empty State */}
       {!blueprint && !isAnalyzing && (
-        <div className="text-center py-8">
-          <div className="text-3xl mb-3">🏗️</div>
-          <p className="text-sm text-text-muted">
+        <div className="text-center py-8 flex flex-col items-center">
+          <div className="text-discord-blurple mb-3">
+            <Hammer className="w-8 h-8" />
+          </div>
+          <p className="text-sm text-text-muted max-w-[200px]">
             Click <strong>"Analyze Current Server"</strong> to generate a blueprint
             of the server structure visible to you.
           </p>

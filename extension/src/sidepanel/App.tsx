@@ -9,19 +9,32 @@ import ChangeHistory from "./components/ChangeHistory";
 import SearchBar from "./components/SearchBar";
 import ChannelDetail from "./components/ChannelDetail";
 import SettingsModal from "./components/SettingsModal";
-
-const TABS: { id: SidePanelTab; label: string; icon: string }[] = [
-  { id: "overview", label: "Overview", icon: "📊" },
-  { id: "tree", label: "Tree", icon: "🌳" },
-  { id: "graph", label: "Graph", icon: "🕸️" },
-  { id: "stats", label: "Stats", icon: "📈" },
-  { id: "history", label: "History", icon: "📜" },
-];
+import { 
+  LayoutDashboard, 
+  Network, 
+  LineChart, 
+  FileText, 
+  Search, 
+  RefreshCw, 
+  Settings, 
+  FolderTree, 
+  Beaker, 
+  Loader2,
+  Server
+} from "lucide-react";
 
 export default function App() {
   const { currentServer, blueprint, checkActiveTab, requestAnalysis } = useServerStore();
   const { activeTab, setActiveTab, selectedChannelId } = useUIStore();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  const TABS: { id: SidePanelTab; label: string; icon: React.ReactNode }[] = [
+    { id: "overview", label: "Overview", icon: <LayoutDashboard className="w-4 h-4" /> },
+    { id: "tree", label: "Tree", icon: <FolderTree className="w-4 h-4" /> },
+    { id: "graph", label: "Graph", icon: <Network className="w-4 h-4" /> },
+    { id: "stats", label: "Stats", icon: <LineChart className="w-4 h-4" /> },
+    { id: "history", label: "History", icon: <FileText className="w-4 h-4" /> },
+  ];
 
   // On mount, actively check the current tab
   useEffect(() => {
@@ -71,8 +84,8 @@ export default function App() {
       <header className="flex-shrink-0 px-4 py-3 border-b border-surface-500/30 bg-surface-800/90 backdrop-blur-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-discord-blurple/20 flex items-center justify-center text-xs">
-              🔍
+            <div className="w-6 h-6 rounded-md bg-discord-blurple/20 flex items-center justify-center text-discord-blurple">
+              <Search className="w-4 h-4" />
             </div>
             <h1 className="text-sm font-semibold text-text-primary tracking-tight">
               MapMyServer
@@ -82,24 +95,24 @@ export default function App() {
             <button
               onClick={() => checkActiveTab()}
               title="Refresh / Re-detect active tab"
-              className="w-7 h-7 rounded-lg bg-surface-700/60 hover:bg-surface-600 text-text-muted hover:text-text-primary flex items-center justify-center text-xs transition-colors"
+              className="w-7 h-7 rounded-lg bg-surface-700/60 hover:bg-surface-600 text-text-muted hover:text-text-primary flex items-center justify-center transition-colors"
             >
-              🔄
+              <RefreshCw className="w-4 h-4" />
             </button>
             <button
               onClick={() => setIsSettingsOpen(true)}
               title="Configure Settings & API"
-              className="w-7 h-7 rounded-lg bg-surface-700/60 hover:bg-surface-600 text-text-muted hover:text-text-primary flex items-center justify-center text-xs transition-colors"
+              className="w-7 h-7 rounded-lg bg-surface-700/60 hover:bg-surface-600 text-text-muted hover:text-text-primary flex items-center justify-center transition-colors"
             >
-              ⚙️
+              <Settings className="w-4 h-4" />
             </button>
           </div>
         </div>
 
         {isServerActive && serverName && (
           <div className="mt-2 flex items-center gap-2">
-            <div className="w-5 h-5 rounded-full bg-discord-blurple/30 flex items-center justify-center text-[10px]">
-              🟣
+            <div className="w-5 h-5 rounded-full bg-discord-blurple/30 flex items-center justify-center text-discord-blurple">
+              <Server className="w-3 h-3" />
             </div>
             <span className="text-sm font-medium text-text-primary truncate">
               {serverName}
@@ -125,10 +138,10 @@ export default function App() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={
-                  activeTab === tab.id ? "tab-btn-active" : "tab-btn"
+                  activeTab === tab.id ? "tab-btn-active flex items-center gap-1.5" : "tab-btn flex items-center gap-1.5"
                 }
               >
-                <span className="mr-1">{tab.icon}</span>
+                {tab.icon}
                 {tab.label}
               </button>
             ))}
@@ -179,26 +192,33 @@ function NotOnDiscord({
       <div className="p-4 flex flex-col gap-4 w-full max-w-sm">
         {/* Browser Mode Action Card */}
         <div className="p-5 bg-surface-900 border border-discord-blurple/40 rounded-xl shadow-lg shadow-discord-blurple/10 flex flex-col items-center">
-          <div className="text-3xl mb-2">🔍</div>
+          <div className="mb-3 text-discord-blurple">
+            <Search className="w-8 h-8" />
+          </div>
           <h3 className="text-sm font-bold text-text-primary mb-1">
             Browser Mode (Zero Setup)
           </h3>
           <p className="text-xs text-text-secondary text-center mb-4 leading-relaxed">
             Make sure your Discord tab is open in Chrome, then click below to scan the server structure.
           </p>
+          <div className="text-[10px] text-text-muted/80 bg-surface-800/80 p-2 rounded border border-surface-500/20 mb-4 w-full text-left">
+            <strong className="text-text-primary">Note for Admins:</strong> Browser Mode only maps what is currently visible on your screen. If you have hidden or collapsed categories, expand them first. For a full 100% accurate scan including all permissions, use the API Mode in Settings.
+          </div>
           <button
             onClick={handleDetectClick}
             disabled={isDetecting}
             className="btn-primary text-xs py-2 px-4 w-full flex items-center justify-center gap-2 shadow-md shadow-brand-500/20"
           >
-            <span>{isDetecting ? "⏳" : "🔍"}</span>
+            {isDetecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
             {isDetecting ? "Scanning Active Tab..." : "Detect & Analyze Current Discord Tab"}
           </button>
         </div>
 
         {/* Demo Option */}
         <div className="p-4 bg-surface-900/60 border border-surface-500/30 rounded-xl flex flex-col items-center">
-          <div className="text-2xl mb-1">🧪</div>
+          <div className="mb-2 text-emerald-500">
+            <Beaker className="w-6 h-6" />
+          </div>
           <h4 className="text-xs font-bold text-text-primary mb-1">
             Want to see how it looks?
           </h4>
@@ -207,18 +227,18 @@ function NotOnDiscord({
           </p>
           <button
             onClick={loadMockServer}
-            className="px-3 py-1.5 bg-surface-700 hover:bg-surface-600 text-text-primary text-xs font-semibold rounded-lg transition-colors w-full border border-surface-500/20"
+            className="px-3 py-1.5 bg-surface-700 hover:bg-surface-600 text-text-primary text-xs font-semibold rounded-lg flex items-center justify-center gap-2 transition-colors w-full border border-surface-500/20"
           >
-            🧪 Load Rich Mock Community
+            <Beaker className="w-3 h-3" /> Load Rich Mock Community
           </button>
         </div>
 
         {/* Settings button */}
         <button
           onClick={onOpenSettings}
-          className="text-xs text-text-muted hover:text-text-secondary transition-colors flex items-center justify-center gap-1"
+          className="text-xs text-text-muted hover:text-text-secondary transition-colors flex items-center justify-center gap-1.5"
         >
-          <span>⚙️</span> Developer / Bot API Settings
+          <Settings className="w-3 h-3" /> Developer / Bot API Settings
         </button>
       </div>
 
