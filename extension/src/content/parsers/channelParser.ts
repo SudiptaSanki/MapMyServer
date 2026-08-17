@@ -57,6 +57,7 @@ export function parseChannelSidebar(): ParsedChannelStructure {
 
   if (channelNav) {
     // Walk container elements in DOM order
+    // Walk container elements in DOM order
     const allElements = channelNav.querySelectorAll("*");
 
     for (const el of allElements) {
@@ -69,15 +70,28 @@ export function parseChannelSidebar(): ParsedChannelStructure {
       if (isCategoryElement(el)) {
         const categoryName = extractCategoryName(el);
         if (categoryName) {
-          const catId = `cat_${categoryPosition}_${slugify(categoryName)}`;
-          currentCategory = {
-            id: catId,
-            name: categoryName,
-            position: categoryPosition++,
-            channelIds: [],
-            visibility: makeVisibility(),
-          };
-          categories.push(currentCategory);
+          const normalizedName = normalizeCategoryName(categoryName);
+          
+          // Check if this category was already detected
+          const existingCat = categories.find(
+            (c) => normalizeCategoryName(c.name) === normalizedName
+          );
+
+          if (existingCat) {
+            // Switch currentCategory context without creating a duplicate
+            currentCategory = existingCat;
+          } else {
+            const catId = `cat_${categoryPosition}_${slugify(categoryName)}`;
+            currentCategory = {
+              id: catId,
+              name: categoryName,
+              position: categoryPosition++,
+              channelIds: [],
+              visibility: makeVisibility(),
+            };
+            categories.push(currentCategory);
+          }
+
           if (elId) processedIds.add(elId);
         }
         continue;
@@ -104,7 +118,7 @@ export function parseChannelSidebar(): ParsedChannelStructure {
         };
         channels.push(channel);
 
-        if (currentCategory) {
+        if (currentCategory && !currentCategory.channelIds.includes(channel.id)) {
           currentCategory.channelIds.push(channel.id);
         }
 
@@ -216,30 +230,56 @@ function findChannelContainer(): Element | null {
 
 // ── Category Detection ─────────────────────────
 
+function normalizeCategoryName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/^[\s─—·•►▸▹▾▿▼▽◆◇○●■□]+/, "")
+    .replace(/[\s─—·•►▸▹▾▿▼▽◆◇○●■□]+$/, "")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
 function isCategoryElement(el: HTMLElement): boolean {
+  // If it's an anchor link or inside one, it's a channel, not a category
+  if (el.tagName === "A" || el.closest("a") || el.getAttribute("role") === "link") {
+    return false;
+  }
+
   const ariaLabel = el.getAttribute("aria-label") ?? "";
   const ariaExpanded = el.getAttribute("aria-expanded");
   const text = el.textContent?.trim() ?? "";
   const className = typeof el.className === "string" ? el.className : "";
 
+  if (ariaLabel.toLowerCase().includes("category")) return true;
+
   if (
     (ariaExpanded !== null || className.includes("category") || className.includes("Category")) &&
     text.length > 0 &&
-    text.length < 50 &&
+    text.length < 60 &&
     !text.includes("#") &&
     isUpperCaseText(text)
   ) {
     return true;
   }
 
-  if (ariaLabel.toLowerCase().includes("category")) return true;
-
-  if (el.tagName === "H3" && isUpperCaseText(text) && text.length < 50) return true;
+  if (el.tagName === "H3" && isUpperCaseText(text) && text.length < 60 && !text.includes("#")) {
+    return true;
+  }
 
   return false;
 }
 
 function extractCategoryName(el: HTMLElement): string | null {
+  const ariaLabel = el.getAttribute("aria-label") ?? "";
+  if (ariaLabel.toLowerCase().includes("category")) {
+    const cleaned = ariaLabel
+      .replace(/\s*\(collapsed category\)/i, "")
+      .replace(/\s*\(category\)/i, "")
+      .replace(/,\s*category/i, "")
+      .trim();
+    if (cleaned) return cleaned;
+  }
+
   let name = el.textContent?.trim() ?? "";
   name = name.replace(/^[\s─—·•►▸▹▾▿▼▽◆◇○●■□]+/, "");
   name = name.replace(/[\s─—·•►▸▹▾▿▼▽◆◇○●■□]+$/, "");

@@ -32,13 +32,42 @@ interface RawCollectedData {
 }
 
 export function buildBlueprint(data: RawCollectedData): ServerBlueprint {
+  // Deduplicate categories by normalized name
+  const categoryMap = new Map<string, Category>();
+  const idRemap = new Map<string, string>(); // oldId -> canonicalId
+
+  for (const cat of data.categories) {
+    const normName = cat.name
+      .toLowerCase()
+      .replace(/^[\s─—·•►▸▹▾▿▼▽◆◇○●■□]+/, "")
+      .replace(/[\s─—·•►▸▹▾▿▼▽◆◇○●■□]+$/, "")
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .trim();
+
+    if (!categoryMap.has(normName)) {
+      categoryMap.set(normName, { ...cat, channelIds: [] });
+      idRemap.set(cat.id, cat.id);
+    } else {
+      const canonical = categoryMap.get(normName)!;
+      idRemap.set(cat.id, canonical.id);
+    }
+  }
+
   // Sort categories by position
-  const categories = [...data.categories].sort(
+  const categories = Array.from(categoryMap.values()).sort(
     (a, b) => a.position - b.position
   );
 
+  // Remap channel parentId if pointing to a duplicate category
+  const mappedChannels = data.channels.map((ch) => {
+    if (ch.parentId && idRemap.has(ch.parentId)) {
+      return { ...ch, parentId: idRemap.get(ch.parentId)! };
+    }
+    return ch;
+  });
+
   // Sort channels by position within categories
-  const channels = [...data.channels].sort((a, b) => {
+  const channels = [...mappedChannels].sort((a, b) => {
     if (a.parentId !== b.parentId) {
       const aCatPos = categories.findIndex((c) => c.id === a.parentId);
       const bCatPos = categories.findIndex((c) => c.id === b.parentId);
