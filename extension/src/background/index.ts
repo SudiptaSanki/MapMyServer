@@ -199,11 +199,83 @@ async function handleMessage(
     }
 
     case "STRUCTURE_COLLECTED": {
+      // Load existing blueprint if present to merge accumulatively
+      const existingBlueprint = await loadBlueprint(message.payload.server.id);
+
+      let mergedCategories = message.payload.categories;
+      let mergedChannels = message.payload.channels;
+      let mergedThreads = message.payload.threads;
+
+      if (existingBlueprint) {
+        // 1. Merge categories
+        const catMap = new Map<string, typeof mergedCategories[0]>();
+        for (const cat of existingBlueprint.categories) {
+          catMap.set(cat.name.trim().toLowerCase(), cat);
+        }
+        for (const cat of message.payload.categories) {
+          const key = cat.name.trim().toLowerCase();
+          if (catMap.has(key)) {
+            const prev = catMap.get(key)!;
+            catMap.set(key, {
+              ...prev,
+              ...cat,
+              channelIds: Array.from(new Set([...prev.channelIds, ...cat.channelIds])),
+            });
+          } else {
+            catMap.set(key, cat);
+          }
+        }
+        mergedCategories = Array.from(catMap.values());
+
+        // 2. Merge channels
+        const chanMap = new Map<string, typeof mergedChannels[0]>();
+        for (const ch of existingBlueprint.channels) {
+          chanMap.set(ch.id, ch);
+        }
+        for (const ch of message.payload.channels) {
+          if (chanMap.has(ch.id)) {
+            const prev = chanMap.get(ch.id)!;
+            chanMap.set(ch.id, {
+              ...prev,
+              ...ch,
+              parentId: ch.parentId || prev.parentId,
+            });
+          } else {
+            // Also check by name
+            const existingByName = Array.from(chanMap.values()).find(
+              (c) =>
+                c.name.toLowerCase() === ch.name.toLowerCase() &&
+                (c.parentId === ch.parentId || !ch.parentId)
+            );
+            if (existingByName) {
+              chanMap.set(existingByName.id, {
+                ...existingByName,
+                ...ch,
+                parentId: ch.parentId || existingByName.parentId,
+              });
+            } else {
+              chanMap.set(ch.id, ch);
+            }
+          }
+        }
+        mergedChannels = Array.from(chanMap.values());
+
+        // 3. Merge threads
+        const threadMap = new Map<string, typeof mergedThreads[0]>();
+        for (const th of existingBlueprint.threads) {
+          threadMap.set(th.id, th);
+        }
+        for (const th of message.payload.threads) {
+          threadMap.set(th.id, th);
+        }
+        mergedThreads = Array.from(threadMap.values());
+      }
+
       const blueprint = buildBlueprint({
         server: message.payload.server,
-        categories: message.payload.categories,
-        channels: message.payload.channels,
-        threads: message.payload.threads,
+        categories: mergedCategories,
+        channels: mergedChannels,
+        threads: mergedThreads,
       });
 
       await saveBlueprint(blueprint.server.id, blueprint);

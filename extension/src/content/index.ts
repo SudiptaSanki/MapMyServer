@@ -6,10 +6,11 @@
  *  channel structure, and communicates with
  *  the background service worker.
  *
- *  Features:
- *  - Auto Live Reload / Mutation Observer
- *  - Virtual Scroller Sweeping for Large Servers
- *  - Instant server-switch auto analysis
+ *  Architecture:
+ *  - Triggered on Server Navigation & User Request
+ *  - Accumulative multi-slice parsing
+ *  - Zero jitter: Scrolling in Discord will not
+ *    trigger unwanted re-renders or data loss
  * ───────────────────────────────────────────── */
 
 import {
@@ -35,8 +36,6 @@ import type { AnalysisStep } from "@mapmyserver/shared";
 
 let lastGuildId: string | null = null;
 let isCollecting = false;
-let sidebarObserver: MutationObserver | null = null;
-let mutationDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 // ── Initialization ─────────────────────────────
 
@@ -46,13 +45,10 @@ function init() {
   // Detect current server on load
   detectCurrentServer();
 
-  // Watch for SPA navigation (Discord doesn't reload pages)
+  // Watch for SPA navigation (switching servers or channels)
   setupNavigationWatcher();
 
-  // Watch for DOM sidebar changes (Auto Live Reload on channel/category edits)
-  setupSidebarWatcher();
-
-  // Listen for messages from background
+  // Listen for messages from background & popup/sidepanel
   chrome.runtime.onMessage.addListener(handleMessage);
 }
 
@@ -87,14 +83,11 @@ function detectCurrentServer() {
       };
       chrome.runtime.sendMessage(msg).catch(() => {});
 
-      // Auto-collect structure on server switch!
+      // Auto-scan new server structure on first visit
       setTimeout(() => {
         collectStructure();
-      }, 500);
+      }, 400);
     }
-
-    // Re-attach sidebar observer for new server
-    setTimeout(setupSidebarWatcher, 1000);
   }
 }
 
@@ -140,49 +133,6 @@ function setupNavigationWatcher() {
   }, 1500);
 }
 
-// ── Auto Live Reload / Mutation Observer ───────
-
-function setupSidebarWatcher() {
-  if (sidebarObserver) {
-    sidebarObserver.disconnect();
-    sidebarObserver = null;
-  }
-
-  const sidebarContainer =
-    document.querySelector('nav[aria-label="Channels"]') ||
-    document.querySelector('nav[aria-label*="channel" i]') ||
-    document.querySelector('div[class*="sidebar"]') ||
-    document.querySelector('div[class*="channels"]');
-
-  if (!sidebarContainer) {
-    // Retry finding the container in a second
-    setTimeout(setupSidebarWatcher, 2000);
-    return;
-  }
-
-  sidebarObserver = new MutationObserver(() => {
-    if (isCollecting) return;
-
-    if (mutationDebounceTimer) {
-      clearTimeout(mutationDebounceTimer);
-    }
-
-    // Debounce live auto-update when user edits or adds channels/categories
-    mutationDebounceTimer = setTimeout(() => {
-      if (isOnDiscordServer(window.location.href)) {
-        console.log("[MapMyServer] Sidebar mutation detected, auto-updating blueprint...");
-        collectStructure();
-      }
-    }, 1200);
-  });
-
-  sidebarObserver.observe(sidebarContainer, {
-    childList: true,
-    subtree: true,
-    characterData: true,
-  });
-}
-
 // ── Structure Collection ───────────────────────
 
 async function collectStructure() {
@@ -219,7 +169,7 @@ async function collectStructure() {
       detail: serverInfo.name,
     });
 
-    // Step 2: Parse channel sidebar (with virtual scroller sweep)
+    // Step 2: Parse channel sidebar
     sendProgress({
       id: "categories",
       label: "Scanning channel sidebar...",
@@ -264,7 +214,7 @@ async function collectStructure() {
       status: "done",
     });
 
-    // Send the full structure
+    // Send structure to background for persistent merging
     const msg: StructureCollectedMessage = {
       type: "STRUCTURE_COLLECTED",
       payload: {
