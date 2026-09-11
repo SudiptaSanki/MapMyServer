@@ -320,5 +320,5 @@ interface ExtractedContent {
 MIT
 
 <!-- autobot:start -->
-<!-- s:f16cf1dd t:2026-09-11T13:02:32.633Z a:schema migration b:4191 -->
+<!-- s:9a5391fd t:2026-09-11T14:26:35.730Z a:reviewed codebase b:3403 -->
 <!-- autobot:end -->
