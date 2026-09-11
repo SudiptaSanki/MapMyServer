@@ -320,5 +320,5 @@ interface ExtractedContent {
 MIT
 
 <!-- autobot:start -->
-<!-- s:36d31e6d t:2026-09-09T20:08:24.969Z a:deployment config b:5757 -->
+<!-- s:f16cf1dd t:2026-09-11T13:02:32.633Z a:schema migration b:4191 -->
 <!-- autobot:end -->
