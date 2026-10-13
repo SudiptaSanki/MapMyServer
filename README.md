@@ -320,5 +320,5 @@ interface ExtractedContent {
 MIT
 
 <!-- autobot:start -->
-<!-- s:a5839e87 t:2026-10-12T12:27:12.586Z a:improved performance b:7216 -->
+<!-- s:ab443fcf t:2026-10-13T12:10:02.041Z a:cleaned up tests b:5202 -->
 <!-- autobot:end -->
