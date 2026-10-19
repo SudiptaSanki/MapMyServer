@@ -320,5 +320,5 @@ interface ExtractedContent {
 MIT
 
 <!-- autobot:start -->
-<!-- s:cc1f2eee t:2026-10-16T16:54:59.325Z a:reviewed pull request b:6481 -->
+<!-- s:74936d89 t:2026-10-19T10:17:03.625Z a:optimized queries b:2203 -->
 <!-- autobot:end -->
