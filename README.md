@@ -320,5 +320,5 @@ interface ExtractedContent {
 MIT
 
 <!-- autobot:start -->
-<!-- s:db1f2c22 t:2026-10-21T09:37:55.360Z a:code review session b:6674 -->
+<!-- s:290a6e11 t:2026-10-21T09:38:03.036Z a:streamlined workflow b:2891 -->
 <!-- autobot:end -->
