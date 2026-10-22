@@ -320,5 +320,5 @@ interface ExtractedContent {
 MIT
 
 <!-- autobot:start -->
-<!-- s:0375d32d t:2026-10-22T15:17:48.337Z a:fixed edge case b:3489 -->
+<!-- s:5a91e988 t:2026-10-22T15:17:59.412Z a:feature planning b:3493 -->
 <!-- autobot:end -->
