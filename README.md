@@ -320,5 +320,5 @@ interface ExtractedContent {
 MIT
 
 <!-- autobot:start -->
-<!-- s:5cef3875 t:2026-11-02T16:59:00.533Z a:reviewed codebase b:417 -->
+<!-- s:ccc97e2c t:2026-11-03T12:20:49.877Z a:refactored module b:2259 -->
 <!-- autobot:end -->
