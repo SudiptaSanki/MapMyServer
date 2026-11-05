@@ -5,10 +5,13 @@ import ServerOverview from "./components/ServerOverview";
 import ServerTree from "./components/ServerTree";
 import ServerGraph from "./components/ServerGraph";
 import Statistics from "./components/Statistics";
-import ChangeHistory from "./components/ChangeHistory";
 import RoleMatrix from "./components/RoleMatrix";
 import SecurityDashboard from "./components/SecurityDashboard";
 import AIArchitect from "./components/AIArchitect";
+import TemplateGallery from "./components/TemplateGallery";
+import AutomationCenter from "./components/AutomationCenter";
+import VersionHistory from "./components/VersionHistory";
+import ExportCenter from "./components/ExportCenter";
 import SearchBar from "./components/SearchBar";
 import ChannelDetail from "./components/ChannelDetail";
 import SettingsModal from "./components/SettingsModal";
@@ -16,7 +19,6 @@ import {
   LayoutDashboard, 
   Network, 
   LineChart, 
-  FileText, 
   Search, 
   RefreshCw, 
   Settings, 
@@ -27,6 +29,10 @@ import {
   Shield,
   ShieldAlert,
   Sparkles,
+  LayoutTemplate,
+  Terminal,
+  History,
+  Download,
 } from "lucide-react";
 
 export default function App() {
@@ -41,8 +47,11 @@ export default function App() {
     { id: "roles", label: "Roles", icon: <Shield className="w-4 h-4" /> },
     { id: "audit", label: "Audit", icon: <ShieldAlert className="w-4 h-4" /> },
     { id: "architect", label: "AI Architect", icon: <Sparkles className="w-4 h-4" /> },
+    { id: "templates", label: "Templates", icon: <LayoutTemplate className="w-4 h-4" /> },
+    { id: "automation", label: "Automation", icon: <Terminal className="w-4 h-4" /> },
+    { id: "history", label: "History", icon: <History className="w-4 h-4" /> },
+    { id: "export", label: "Export", icon: <Download className="w-4 h-4" /> },
     { id: "stats", label: "Stats", icon: <LineChart className="w-4 h-4" /> },
-    { id: "history", label: "History", icon: <FileText className="w-4 h-4" /> },
   ];
 
   // On mount, actively check the current tab
@@ -84,10 +93,16 @@ export default function App() {
         return <SecurityDashboard />;
       case "architect":
         return <AIArchitect />;
+      case "templates":
+        return <TemplateGallery />;
+      case "automation":
+        return <AutomationCenter />;
+      case "history":
+        return <VersionHistory />;
+      case "export":
+        return <ExportCenter />;
       case "stats":
         return <Statistics />;
-      case "history":
-        return <ChangeHistory />;
       default:
         return <ServerOverview />;
     }
@@ -147,7 +162,7 @@ export default function App() {
       {/* Tab Navigation */}
       {isServerActive && (
         <nav className="flex-shrink-0 px-3 pt-2 pb-1">
-          <div className="flex gap-1 p-1 bg-surface-900/40 rounded-lg">
+          <div className="flex gap-1 p-1 bg-surface-900/40 rounded-lg overflow-x-auto scrollbar-none">
             {TABS.map((tab) => (
               <button
                 key={tab.id}

@@ -9,7 +9,18 @@ import { create } from "zustand";
 
 // ── Tab Types ──────────────────────────────────
 
-export type SidePanelTab = "overview" | "tree" | "graph" | "roles" | "audit" | "architect" | "stats" | "history";
+export type SidePanelTab =
+  | "overview"
+  | "tree"
+  | "graph"
+  | "roles"
+  | "audit"
+  | "architect"
+  | "templates"
+  | "automation"
+  | "history"
+  | "export"
+  | "stats";
 
 // ── Filter State ───────────────────────────────
 

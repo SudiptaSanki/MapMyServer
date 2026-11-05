@@ -47,14 +47,21 @@ export async function deleteBlueprint(serverId: string): Promise<void> {
 
 // ── Snapshot Storage ───────────────────────────
 
+const MAX_SNAPSHOTS_PER_SERVER = 25;
+
 export async function saveSnapshot(
   serverId: string,
   snapshot: BlueprintSnapshot
 ): Promise<void> {
   const key = KEYS.snapshots(serverId);
   const existing = await loadSnapshots(serverId);
-  existing.push(snapshot);
-  await chrome.storage.local.set({ [key]: existing });
+  
+  // Prepend most recent
+  existing.unshift(snapshot);
+
+  // Enforce retention limit
+  const trimmed = existing.slice(0, MAX_SNAPSHOTS_PER_SERVER);
+  await chrome.storage.local.set({ [key]: trimmed });
 }
 
 export async function loadSnapshots(

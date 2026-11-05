@@ -317,6 +317,8 @@ export interface BlueprintSnapshot {
   blueprint: ServerBlueprint;
   createdAt: string;
   label?: string;
+  notes?: string;
+  architectureVersion?: number;
 }
 
 // ── Analysis Progress ──────────────────────────
@@ -361,4 +363,9 @@ export * from "./aiTypes";
 export * from "./architectureDiffEngine";
 export * from "./aiContextBuilder";
 export * from "./documentationGenerator";
+export * from "./templateTypes";
+export * from "./curatedTemplates";
+export * from "./scriptGenerator";
+export * from "./changePlannerTypes";
+export * from "./changeMonitor";
 

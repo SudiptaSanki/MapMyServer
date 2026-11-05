@@ -697,6 +697,21 @@ export default function AIArchitect() {
                   <div className="text-text-secondary leading-relaxed">{rec.suggestedImplementation}</div>
                   <div className="text-emerald-400 pt-0.5">Benefit: {rec.expectedBenefit}</div>
                 </div>
+
+                <div className="pt-1 flex items-center justify-end">
+                  <button
+                    onClick={() => {
+                      setMode("chat");
+                      handleSendMessage(
+                        `Generate a comprehensive, step-by-step implementation plan for recommendation: "${rec.title}". Include problem diagnosis, current vs proposed configuration, required permissions, risk factors, rollout steps, and an automation script snippet.`
+                      );
+                    }}
+                    className="text-[10px] text-discord-blurple hover:underline flex items-center gap-1 font-semibold"
+                  >
+                    <Sparkles className="w-3 h-3 text-amber-400" />
+                    <span>Turn Into Implementation Plan</span>
+                  </button>
+                </div>
               </div>
             ))
           )}
