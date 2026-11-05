@@ -73,3 +73,4 @@ describe("Realistic Scanner & Blueprint Fixtures (Section 16)", () => {
     expect(bp.scanQuality?.missingDataWarnings.length).toBeGreaterThan(0);
   });
 });
+

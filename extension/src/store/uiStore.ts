@@ -11,6 +11,7 @@ import { create } from "zustand";
 
 export type SidePanelTab =
   | "overview"
+  | "cloner"
   | "tree"
   | "compare"
   | "graph"

@@ -16,6 +16,7 @@ import SearchBar from "./components/SearchBar";
 import ChannelDetail from "./components/ChannelDetail";
 import SettingsModal from "./components/SettingsModal";
 import ServerComparison from "./components/ServerComparison";
+import SmartCloner from "./components/SmartCloner";
 import { 
   LayoutDashboard, 
   Network, 
@@ -35,6 +36,7 @@ import {
   History,
   Download,
   GitCompare,
+  Copy,
 } from "lucide-react";
 
 export default function App() {
@@ -44,6 +46,7 @@ export default function App() {
 
   const ALL_TABS: { id: SidePanelTab; label: string; icon: React.ReactNode; beginner: boolean }[] = [
     { id: "overview", label: "Overview", icon: <LayoutDashboard className="w-4 h-4" />, beginner: true },
+    { id: "cloner", label: "Smart Cloner", icon: <Copy className="w-4 h-4 text-emerald-400" />, beginner: true },
     { id: "tree", label: "Tree", icon: <FolderTree className="w-4 h-4" />, beginner: true },
     { id: "compare", label: "Compare", icon: <GitCompare className="w-4 h-4" />, beginner: true },
     { id: "graph", label: "Graph", icon: <Network className="w-4 h-4" />, beginner: false },
@@ -90,6 +93,8 @@ export default function App() {
     switch (activeTab) {
       case "overview":
         return <ServerOverview />;
+      case "cloner":
+        return <SmartCloner />;
       case "tree":
         return <ServerTree />;
       case "compare":
