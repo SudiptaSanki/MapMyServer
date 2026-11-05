@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useCallback, useEffect } from "react";
 import {
   ReactFlow,
   MiniMap,
@@ -6,6 +6,8 @@ import {
   Background,
   useNodesState,
   useEdgesState,
+  useReactFlow,
+  ReactFlowProvider,
   MarkerType,
   type Node,
   type Edge,
@@ -13,56 +15,76 @@ import {
 import "@xyflow/react/dist/style.css";
 import dagre from "dagre";
 import { useServerStore } from "@/store/serverStore";
-import type { ServerBlueprint } from "@mapmyserver/shared";
-import { 
-  Server, 
-  Folder, 
-  Hash, 
-  Volume2, 
-  Mic, 
-  MessageSquare, 
-  Megaphone, 
-  Image as ImageIcon, 
+import { useUIStore } from "@/store/uiStore";
+import type { ServerBlueprint, VisibilityClassification } from "@mapmyserver/shared";
+import {
+  Server,
+  Folder,
+  Hash,
+  Volume2,
+  Mic,
+  MessageSquare,
+  Megaphone,
+  Image as ImageIcon,
   MessageCircle,
-  Network
+  Network,
+  Lock,
+  Maximize2,
+  RotateCcw,
 } from "lucide-react";
 
 function getNodeIcon(type: string) {
-  const className = "w-4 h-4";
+  const className = "w-3.5 h-3.5";
   switch (type) {
     case "text":
-      return <Hash className={`${className} text-[#b5bac1]`} />;
+      return <Hash className={`${className} text-channel-text`} />;
     case "voice":
-      return <Volume2 className={`${className} text-[#57f287]`} />;
+      return <Volume2 className={`${className} text-channel-voice`} />;
     case "stage":
-      return <Mic className={`${className} text-[#eb459e]`} />;
+      return <Mic className={`${className} text-channel-stage`} />;
     case "forum":
-      return <MessageSquare className={`${className} text-[#fee75c]`} />;
+      return <MessageSquare className={`${className} text-channel-forum`} />;
     case "announcement":
-      return <Megaphone className={`${className} text-[#f0b132]`} />;
+      return <Megaphone className={`${className} text-channel-announcement`} />;
     case "media":
-      return <ImageIcon className={`${className} text-[#b5bac1]`} />;
+      return <ImageIcon className={`${className} text-channel-text`} />;
     case "category":
-      return <Folder className={`${className} text-[#949ba4]`} />;
+      return <Folder className={`${className} text-text-muted`} />;
     case "thread":
-      return <MessageCircle className={`${className} text-[#b5bac1]`} />;
+      return <MessageCircle className={`${className} text-text-secondary`} />;
     case "server":
-      return <Server className={`${className} text-[#5865f2]`} />;
+      return <Server className={`${className} text-discord-blurple`} />;
     default:
-      return <Hash className={`${className} text-[#949ba4]`} />;
+      return <Hash className={`${className} text-text-muted`} />;
+  }
+}
+
+function getVisibilityBorderColor(classification?: VisibilityClassification): string {
+  switch (classification) {
+    case "broadly-accessible":
+      return "#3f4147"; // clean default
+    case "role-restricted":
+      return "#f59e0b"; // amber
+    case "member-restricted":
+      return "#ec4899"; // fuchsia
+    case "user-inaccessible":
+      return "#ed4245"; // red
+    default:
+      return "#3f4147";
   }
 }
 
 // ── Layout Algorithm (Dagre) ───────────────────
 
-const nodeWidth = 200;
-const nodeHeight = 40;
+const nodeWidth = 210;
+const nodeHeight = 42;
 
 function getLayoutedElements(nodes: Node[], edges: Edge[], direction = "LR") {
+  if (nodes.length === 0) return { nodes: [], edges: [] };
+
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
-  
-  dagreGraph.setGraph({ rankdir: direction, ranksep: 100, nodesep: 20 });
+  dagreGraph.setGraph({ rankdir: direction, ranksep: 90, nodesep: 24 });
 
   nodes.forEach((node) => {
     dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
@@ -81,8 +103,8 @@ function getLayoutedElements(nodes: Node[], edges: Edge[], direction = "LR") {
       targetPosition: "left" as any,
       sourcePosition: "right" as any,
       position: {
-        x: nodeWithPosition.x - nodeWidth / 2,
-        y: nodeWithPosition.y - nodeHeight / 2,
+        x: nodeWithPosition ? nodeWithPosition.x - nodeWidth / 2 : 0,
+        y: nodeWithPosition ? nodeWithPosition.y - nodeHeight / 2 : 0,
       },
     };
   });
@@ -90,50 +112,103 @@ function getLayoutedElements(nodes: Node[], edges: Edge[], direction = "LR") {
   return { nodes: layoutedNodes, edges };
 }
 
-// ── Blueprint to Graph Converter ───────────────
+// ── Blueprint to Graph Converter with Filter Integration ──
 
-function convertBlueprintToGraph(blueprint: ServerBlueprint) {
+function convertBlueprintToGraph(
+  blueprint: ServerBlueprint,
+  filters: ReturnType<typeof useUIStore.getState>["filters"],
+  searchQuery: string,
+  selectedChannelId: string | null
+) {
   const initialNodes: Node[] = [];
   const initialEdges: Edge[] = [];
 
-  // Server Node (Root)
+  const visibleCategoryIds = new Set<string>();
+
+  // Filter channels
+  const filteredChannels = blueprint.channels.filter((chan) => {
+    // 1. Category focus filter
+    if (filters.selectedCategoryId && chan.parentId !== filters.selectedCategoryId) {
+      return false;
+    }
+
+    // 2. Channel Type filter
+    if (chan.type === "text" && !filters.showText) return false;
+    if (chan.type === "voice" && !filters.showVoice) return false;
+    if (chan.type === "stage" && !filters.showStage) return false;
+    if (chan.type === "forum" && !filters.showForums) return false;
+    if (chan.type === "announcement" && !filters.showAnnouncements) return false;
+
+    // 3. Visibility filter
+    const vis = chan.visibilityAnalysis?.classification || "broadly-accessible";
+    if (vis === "broadly-accessible" && !filters.showPublic) return false;
+    if (vis === "role-restricted" && !filters.showRestricted) return false;
+    if (vis === "user-inaccessible" && !filters.showPrivate) return false;
+
+    // 4. Search query
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const match =
+        chan.name.toLowerCase().includes(q) ||
+        (chan.topic && chan.topic.toLowerCase().includes(q)) ||
+        (chan.purpose?.purpose && chan.purpose.purpose.toLowerCase().includes(q));
+      if (!match) return false;
+    }
+
+    if (chan.parentId) {
+      visibleCategoryIds.add(chan.parentId);
+    }
+    return true;
+  });
+
+  // Filter categories
+  const filteredCategories = blueprint.categories.filter((cat) => {
+    if (!filters.showCategories) return false;
+    if (filters.selectedCategoryId && cat.id !== filters.selectedCategoryId) return false;
+    if (filters.collapseEmpty && !visibleCategoryIds.has(cat.id)) return false;
+    return true;
+  });
+
+  // Root Server Node
   initialNodes.push({
     id: blueprint.server.id,
     type: "default",
     data: {
+      type: "server",
       label: (
-        <div className="flex items-center gap-2 font-bold p-1 text-[#f2f3f5]">
-          <Server className="w-5 h-5 text-[#5865f2]" />
+        <div className="flex items-center gap-2 font-bold px-2 py-1 text-text-primary text-xs">
+          <Server className="w-4 h-4 text-discord-blurple flex-shrink-0" />
           <span className="truncate">{blueprint.server.name}</span>
         </div>
       ),
     },
     position: { x: 0, y: 0 },
     style: {
-      background: "#2b2d31",
+      background: "#1e1f22",
       color: "#f2f3f5",
-      border: "1px solid #5865f2",
+      border: "1.5px solid #5865f2",
       borderRadius: "8px",
       width: nodeWidth,
     },
   });
 
   // Category Nodes
-  blueprint.categories.forEach((cat) => {
+  filteredCategories.forEach((cat) => {
     initialNodes.push({
       id: cat.id,
       type: "default",
       data: {
+        type: "category",
         label: (
-          <div className="flex items-center gap-2 font-semibold text-xs uppercase text-[#b5bac1] p-1">
-            <Folder className="w-4 h-4 text-[#949ba4]" />
+          <div className="flex items-center gap-1.5 font-semibold text-[11px] uppercase tracking-wider text-text-secondary px-2 py-1">
+            <Folder className="w-3.5 h-3.5 text-text-muted flex-shrink-0" />
             <span className="truncate">{cat.name}</span>
           </div>
         ),
       },
       position: { x: 0, y: 0 },
       style: {
-        background: "#313338",
+        background: "#2b2d31",
         color: "#dbdee1",
         border: "1px solid #3f4147",
         borderRadius: "6px",
@@ -147,39 +222,55 @@ function convertBlueprintToGraph(blueprint: ServerBlueprint) {
       target: cat.id,
       type: "smoothstep",
       animated: true,
-      style: { stroke: "#5865f2", strokeWidth: 2 },
+      style: { stroke: "#5865f2", strokeWidth: 1.5 },
     });
   });
 
   // Channel Nodes
-  blueprint.channels.forEach((chan) => {
-    // If channel has no parent category, connect it to the server directly
-    const parentId = chan.parentId || blueprint.server.id;
-    const icon = getNodeIcon(chan.type);
+  filteredChannels.forEach((chan) => {
+    const parentId =
+      chan.parentId && filteredCategories.some((c) => c.id === chan.parentId)
+        ? chan.parentId
+        : blueprint.server.id;
 
-    let borderColor = "#3f4147";
-    if (chan.type === "voice") borderColor = "#57f287";
-    if (chan.type === "stage") borderColor = "#eb459e";
-    if (chan.type === "forum") borderColor = "#fee75c";
+    const icon = getNodeIcon(chan.type);
+    const borderColor = getVisibilityBorderColor(chan.visibilityAnalysis?.classification);
+    const isSelected = selectedChannelId === chan.id;
+    const isRestricted =
+      chan.visibilityAnalysis?.classification === "role-restricted" ||
+      chan.visibilityAnalysis?.classification === "member-restricted";
 
     initialNodes.push({
       id: chan.id,
       type: "default",
       data: {
+        type: "channel",
+        channelId: chan.id,
         label: (
-          <div className="flex items-center gap-2 text-sm p-1">
-            <span className="text-lg flex-shrink-0">{icon}</span>
-            <span className="truncate">{chan.name}</span>
+          <div className="flex items-center justify-between px-2 py-1 text-xs">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="flex-shrink-0">{icon}</span>
+              <span className={`truncate ${isSelected ? "text-white font-semibold" : "text-text-primary"}`}>
+                {chan.name}
+              </span>
+            </div>
+            {isRestricted && (
+              <span title="Restricted Channel" className="flex-shrink-0 text-amber-400 ml-1">
+                <Lock className="w-3 h-3" />
+              </span>
+            )}
           </div>
         ),
       },
       position: { x: 0, y: 0 },
       style: {
-        background: "#2b2d31",
+        background: isSelected ? "#383a40" : "#2b2d31",
         color: "#dbdee1",
-        border: `1px solid ${borderColor}`,
+        border: isSelected ? "2px solid #5865f2" : `1px solid ${borderColor}`,
         borderRadius: "6px",
         width: nodeWidth,
+        boxShadow: isSelected ? "0 0 10px rgba(88, 101, 242, 0.4)" : undefined,
+        cursor: "pointer",
       },
     });
 
@@ -199,26 +290,35 @@ function convertBlueprintToGraph(blueprint: ServerBlueprint) {
   return getLayoutedElements(initialNodes, initialEdges, "LR");
 }
 
-// ── Component ──────────────────────────────────
+// ── Graph Inner Component ──────────────────────
 
-export default function ServerGraph() {
+function ServerGraphInner() {
   const { blueprint } = useServerStore();
+  const { filters, searchQuery, selectedChannelId, setSelectedChannelId } = useUIStore();
+  const { fitView } = useReactFlow();
 
   const graphData = useMemo(() => {
-    if (!blueprint) return null;
-    return convertBlueprintToGraph(blueprint);
-  }, [blueprint]);
+    if (!blueprint) return { nodes: [], edges: [] };
+    return convertBlueprintToGraph(blueprint, filters, searchQuery, selectedChannelId);
+  }, [blueprint, filters, searchQuery, selectedChannelId]);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(graphData?.nodes ?? []);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(graphData?.edges ?? []);
+  const [nodes, setNodes, onNodesChange] = useNodesState(graphData.nodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(graphData.edges);
 
-  // Update layout when blueprint changes
-  useMemo(() => {
-    if (graphData) {
-      setNodes(graphData.nodes);
-      setEdges(graphData.edges);
-    }
-  }, [graphData, setNodes, setEdges]);
+  // Sync state safely with useEffect (no useMemo side-effects)
+  useEffect(() => {
+    setNodes(graphData.nodes);
+    setEdges(graphData.edges);
+  }, [graphData.nodes, graphData.edges, setNodes, setEdges]);
+
+  const handleNodeClick = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      if (node.data?.type === "channel" && typeof node.id === "string") {
+        setSelectedChannelId(node.id);
+      }
+    },
+    [setSelectedChannelId]
+  );
 
   if (!blueprint) {
     return (
@@ -226,20 +326,51 @@ export default function ServerGraph() {
         <div className="text-discord-blurple">
           <Network className="w-8 h-8" />
         </div>
-        <p className="text-sm text-text-muted">
-          Analyze a server to see its graph structure.
-        </p>
+        <p className="text-sm text-text-muted">Analyze a server to see its graph structure.</p>
       </div>
     );
   }
 
   return (
-    <div className="w-full h-[calc(100vh-140px)] rounded-lg overflow-hidden border border-surface-500/30">
+    <div className="relative w-full h-[calc(100vh-140px)] rounded-lg overflow-hidden border border-surface-500/30 bg-surface-950">
+      {/* Quick Graph Toolbar */}
+      <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 p-1 bg-surface-900/90 backdrop-blur border border-surface-500/40 rounded-lg shadow-lg">
+        <button
+          onClick={() => fitView({ duration: 400 })}
+          title="Fit to Screen"
+          className="p-1.5 rounded hover:bg-surface-700 text-text-muted hover:text-text-primary transition-colors text-xs flex items-center gap-1"
+        >
+          <Maximize2 className="w-3.5 h-3.5" />
+          <span className="text-[10px]">Fit</span>
+        </button>
+        <button
+          onClick={() => {
+            setNodes(graphData.nodes);
+            setEdges(graphData.edges);
+            fitView({ duration: 400 });
+          }}
+          title="Reset Layout"
+          className="p-1.5 rounded hover:bg-surface-700 text-text-muted hover:text-text-primary transition-colors text-xs flex items-center gap-1"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          <span className="text-[10px]">Reset</span>
+        </button>
+        {selectedChannelId && (
+          <button
+            onClick={() => setSelectedChannelId(null)}
+            className="text-[10px] px-2 py-1 rounded bg-discord-blurple/20 text-discord-blurple hover:bg-discord-blurple/30 font-medium ml-1"
+          >
+            Clear Selection
+          </button>
+        )}
+      </div>
+
       <ReactFlow
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onNodeClick={handleNodeClick}
         fitView
         minZoom={0.1}
         maxZoom={1.5}
@@ -250,14 +381,23 @@ export default function ServerGraph() {
         <Controls showInteractive={false} className="bg-surface-700 fill-text-primary" />
         <MiniMap
           nodeStrokeColor={(n) => {
-            if (n.style?.background === "#313338") return "#3f4147";
+            if (n.style?.background === "#1e1f22") return "#5865f2";
+            if (n.style?.background === "#2b2d31") return "#3f4147";
             return "#5865f2";
           }}
-          nodeColor={(n) => n.style?.background as string}
+          nodeColor={(n) => (n.style?.background as string) || "#2b2d31"}
           maskColor="rgba(30, 31, 34, 0.7)"
           className="bg-surface-900 border border-surface-500/30 rounded"
         />
       </ReactFlow>
     </div>
+  );
+}
+
+export default function ServerGraph() {
+  return (
+    <ReactFlowProvider>
+      <ServerGraphInner />
+    </ReactFlowProvider>
   );
 }

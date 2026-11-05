@@ -290,6 +290,65 @@ async function handleMessage(
       break;
     }
 
+    case "ROLES_COLLECTED": {
+      const { guildId, roles } = message.payload;
+      const bp = await loadBlueprint(guildId);
+      if (bp) {
+        const roleMap = new Map<string, typeof roles[0]>();
+        // keep existing roles
+        for (const r of bp.roles) {
+          roleMap.set(r.name.trim().toLowerCase(), r);
+        }
+        // merge new roles
+        for (const r of roles) {
+          const key = r.name.trim().toLowerCase();
+          if (roleMap.has(key)) {
+            roleMap.set(key, { ...roleMap.get(key)!, ...r });
+          } else {
+            roleMap.set(key, r);
+          }
+        }
+        const updatedRoles = Array.from(roleMap.values());
+        const updatedBp = buildBlueprint({
+          server: bp.server,
+          categories: bp.categories,
+          channels: bp.channels,
+          threads: bp.threads,
+          roles: updatedRoles,
+          rules: bp.rules,
+        });
+        await saveBlueprint(guildId, updatedBp);
+        broadcastToUI({ type: "BLUEPRINT_READY", payload: updatedBp });
+      }
+      sendResponse({ status: "ok" });
+      break;
+    }
+
+    case "CHANNEL_PERMISSIONS_COLLECTED": {
+      const { guildId, channelId, permissions } = message.payload;
+      const bp = await loadBlueprint(guildId);
+      if (bp) {
+        const updatedChannels = bp.channels.map((c) => {
+          if (c.id === channelId) {
+            return { ...c, permissions };
+          }
+          return c;
+        });
+        const updatedBp = buildBlueprint({
+          server: bp.server,
+          categories: bp.categories,
+          channels: updatedChannels,
+          threads: bp.threads,
+          roles: bp.roles,
+          rules: bp.rules,
+        });
+        await saveBlueprint(guildId, updatedBp);
+        broadcastToUI({ type: "BLUEPRINT_READY", payload: updatedBp });
+      }
+      sendResponse({ status: "ok" });
+      break;
+    }
+
     case "COLLECTION_PROGRESS": {
       const progressMsg: AnalysisProgressMessage = {
         type: "ANALYSIS_PROGRESS",

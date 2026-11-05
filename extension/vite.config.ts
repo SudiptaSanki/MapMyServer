@@ -12,6 +12,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": resolve(__dirname, "src"),
+      "@mapmyserver/shared": resolve(__dirname, "../shared/src"),
     },
   },
   build: {

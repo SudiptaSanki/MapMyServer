@@ -2,22 +2,27 @@ import { useState } from "react";
 import { useServerStore } from "@/store/serverStore";
 import { useUIStore } from "@/store/uiStore";
 import type { Channel, ExtractedContent, ChannelPurpose } from "@mapmyserver/shared";
-import { 
-  X, 
-  Target, 
-  MessageCircle, 
-  Hand, 
-  FileText, 
-  ClipboardList, 
-  Scale, 
-  Pin, 
+import {
+  X,
+  Target,
+  MessageCircle,
+  Hand,
+  FileText,
+  ClipboardList,
+  Scale,
   ShieldCheck,
   Hash,
   Volume2,
   Mic,
   MessageSquare,
   Megaphone,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Lock,
+  Eye,
+  ChevronDown,
+  ChevronUp,
+  FolderSync,
+  Info,
 } from "lucide-react";
 
 const PURPOSE_COLORS: Record<ChannelPurpose, { bg: string; text: string; border: string }> = {
@@ -59,6 +64,7 @@ export default function ChannelDetail() {
   const { blueprint } = useServerStore();
   const { selectedChannelId, setSelectedChannelId } = useUIStore();
   const [activeProvenance, setActiveProvenance] = useState<ExtractedContent["source"] | null>(null);
+  const [showPermExplanation, setShowPermExplanation] = useState(true);
 
   if (!blueprint || !selectedChannelId) return null;
 
@@ -79,6 +85,8 @@ export default function ChannelDetail() {
   const purposeStyle = channel.purpose?.purpose
     ? PURPOSE_COLORS[channel.purpose.purpose]
     : PURPOSE_COLORS.OTHER;
+
+  const vis = channel.visibilityAnalysis;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-end animate-fade-in">
@@ -110,6 +118,142 @@ export default function ChannelDetail() {
 
         {/* Body Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 text-sm">
+          {/* Visibility & Permission Assessment */}
+          <div className="glass-card p-3 border-discord-blurple/30 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-discord-blurple" /> Access & Visibility Status
+              </span>
+              {vis && (
+                <span
+                  className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
+                    vis.classification === "broadly-accessible"
+                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                      : vis.classification === "role-restricted"
+                      ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                      : "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                  }`}
+                >
+                  {vis.classification === "broadly-accessible"
+                    ? "Broadly Accessible"
+                    : vis.classification === "role-restricted"
+                    ? "Role Restricted"
+                    : vis.classification === "member-restricted"
+                    ? "Member Restricted"
+                    : "Inaccessible"}
+                </span>
+              )}
+            </div>
+
+            {/* Reason */}
+            {vis && (
+              <p className="text-xs text-text-secondary leading-relaxed bg-surface-800/80 p-2.5 rounded border border-surface-500/20">
+                {vis.reason}
+              </p>
+            )}
+
+            {/* Sync Status & Roles with Access */}
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <div className="flex items-center gap-1 text-[11px] px-2 py-1 rounded bg-surface-800 border border-surface-500/20 text-text-muted">
+                <FolderSync className="w-3 h-3 text-text-secondary" />
+                <span>
+                  Category Sync:{" "}
+                  <strong className={vis?.isCategorySynced ? "text-emerald-400" : "text-amber-400"}>
+                    {vis?.isCategorySynced ? "Synchronized" : "Custom Overrides"}
+                  </strong>
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1 text-[11px] px-2 py-1 rounded bg-surface-800 border border-surface-500/20 text-text-muted">
+                <Eye className="w-3 h-3 text-text-secondary" />
+                <span>
+                  @everyone View:{" "}
+                  <strong className={vis?.everyoneCanView ? "text-emerald-400" : "text-rose-400"}>
+                    {vis?.everyoneCanView ? "Allowed" : "Denied"}
+                  </strong>
+                </span>
+              </div>
+            </div>
+
+            {/* Roles with explicit access */}
+            {vis && vis.rolesWithAccess.length > 0 && (
+              <div className="pt-1.5">
+                <span className="text-[10px] text-text-muted block mb-1">Roles Granted View Access:</span>
+                <div className="flex flex-wrap gap-1">
+                  {vis.rolesWithAccess.map((roleName) => (
+                    <span
+                      key={roleName}
+                      className="text-[10px] px-2 py-0.5 rounded bg-discord-blurple/15 border border-discord-blurple/30 text-discord-blurple font-medium"
+                    >
+                      {roleName}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Expandable Permission Explanation Breakdown */}
+          {channel.permissions && channel.permissions.length > 0 && (
+            <div className="glass-card p-3">
+              <button
+                onClick={() => setShowPermExplanation(!showPermExplanation)}
+                className="w-full flex items-center justify-between text-xs font-bold text-text-primary uppercase tracking-wider"
+              >
+                <span className="flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-amber-400" />
+                  Permission Overwrites ({channel.permissions.length})
+                </span>
+                {showPermExplanation ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+
+              {showPermExplanation && (
+                <div className="mt-2.5 space-y-2">
+                  {channel.permissions.map((ow) => (
+                    <div
+                      key={ow.id}
+                      className="p-2.5 rounded bg-surface-800/80 border border-surface-500/20 text-xs space-y-1"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-text-primary">
+                          {ow.type === "role" ? "Role: " : "Member: "}
+                          {ow.id.replace(/^override-|^ow_/, "")}
+                        </span>
+                        <span className="text-[10px] text-text-muted uppercase font-mono">{ow.type}</span>
+                      </div>
+
+                      {ow.allow.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {ow.allow.map((perm) => (
+                            <span
+                              key={perm}
+                              className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                            >
+                              ✓ {perm}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {ow.deny.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {ow.deny.map((perm) => (
+                            <span
+                              key={perm}
+                              className="text-[9px] px-1.5 py-0.2 rounded bg-rose-500/15 text-rose-400 border border-rose-500/30"
+                            >
+                              ✕ {perm}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Purpose Badge */}
           {channel.purpose && (
             <div
@@ -242,33 +386,6 @@ export default function ChannelDetail() {
             </div>
           )}
 
-          {/* Pinned Messages */}
-          {channel.content?.pinnedMessages && channel.content.pinnedMessages.length > 0 && (
-            <div className="glass-card p-3">
-              <div className="text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <Pin className="w-3.5 h-3.5" /> Pinned Content
-              </div>
-              <div className="space-y-2">
-                {channel.content.pinnedMessages.map((pinned, idx) => (
-                  <div
-                    key={idx}
-                    className="text-xs bg-surface-800/80 p-2 rounded border border-surface-500/30 flex justify-between items-start gap-2"
-                  >
-                    <span className="text-text-primary leading-relaxed">
-                      {pinned.text}
-                    </span>
-                    <button
-                      onClick={() => setActiveProvenance(pinned.source)}
-                      className="text-[9px] text-text-muted hover:text-discord-blurple flex-shrink-0 font-mono"
-                    >
-                      [src]
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Threads in this channel */}
           {channelThreads.length > 0 && (
             <div className="glass-card p-3">
@@ -293,19 +410,32 @@ export default function ChannelDetail() {
             </div>
           )}
 
-          {/* Metadata & Permissions Summary */}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="metric-card">
-              <span className="metric-label">Threads</span>
-              <span className="metric-value text-sm text-text-primary">
-                {channelThreads.length}
-              </span>
-            </div>
-            <div className="metric-card">
-              <span className="metric-label">Slowmode</span>
-              <span className="metric-value text-sm text-text-primary">
-                {channel.metadata?.slowMode ? `${channel.metadata.slowMode}s` : "Off"}
-              </span>
+          {/* Metadata & Channel Configuration */}
+          <div className="glass-card p-3 space-y-2">
+            <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
+              <Info className="w-3.5 h-3.5" /> Channel Configuration & Technical Specs
+            </span>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="bg-surface-800/80 p-2 rounded border border-surface-500/20">
+                <span className="text-[10px] text-text-muted block">Channel ID</span>
+                <span className="font-mono text-text-primary text-[11px]">{channel.id}</span>
+              </div>
+              <div className="bg-surface-800/80 p-2 rounded border border-surface-500/20">
+                <span className="text-[10px] text-text-muted block">Position</span>
+                <span className="font-mono text-text-primary">{channel.position}</span>
+              </div>
+              <div className="bg-surface-800/80 p-2 rounded border border-surface-500/20">
+                <span className="text-[10px] text-text-muted block">Slowmode</span>
+                <span className="font-mono text-text-primary">
+                  {channel.metadata?.slowMode ? `${channel.metadata.slowMode}s` : "Disabled"}
+                </span>
+              </div>
+              <div className="bg-surface-800/80 p-2 rounded border border-surface-500/20">
+                <span className="text-[10px] text-text-muted block">NSFW Restricted</span>
+                <span className="font-mono text-text-primary">
+                  {channel.metadata?.nsfw ? "Yes (Age-Gated)" : "No"}
+                </span>
+              </div>
             </div>
           </div>
         </div>

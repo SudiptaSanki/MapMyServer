@@ -1,4 +1,13 @@
 import { useEffect, useState } from "react";
+import {
+  Search,
+  Server,
+  Folder,
+  Hash,
+  MessageCircle,
+  Loader2,
+  ExternalLink,
+} from "lucide-react";
 
 interface ServerStatus {
   guildId: string | null;
@@ -35,7 +44,7 @@ export default function App() {
       }
 
       // Extract guild ID from URL
-      const match = tab.url.match(/discord\.com\/channels\/(\d{17,20})/);
+      const match = tab.url.match(/discord\.com\/channels\/(\d{15,22})/);
       const guildId = match?.[1] ?? null;
 
       if (guildId) {
@@ -86,7 +95,6 @@ export default function App() {
     setAnalyzing(true);
     try {
       await chrome.runtime.sendMessage({ type: "REQUEST_ANALYSIS" });
-      // Open side panel for full results
       await chrome.runtime.sendMessage({ type: "OPEN_SIDE_PANEL" });
       window.close();
     } catch {
@@ -104,31 +112,33 @@ export default function App() {
   };
 
   return (
-    <div className="w-[320px] bg-surface-800 p-4">
+    <div className="w-[320px] bg-surface-800 p-4 font-sans text-xs">
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
-        <div className="w-7 h-7 rounded-lg bg-discord-blurple/20 flex items-center justify-center text-sm">
-          🔍
+        <div className="w-7 h-7 rounded-lg bg-discord-blurple/20 flex items-center justify-center text-discord-blurple">
+          <Search className="w-4 h-4" />
         </div>
         <div>
           <h1 className="text-sm font-semibold text-text-primary">
-            Discord Server Blueprint
+            MapMyServer
           </h1>
           <p className="text-[10px] text-text-muted">
-            Analyze · Visualize · Compare
+            Architecture & Permission Intelligence
           </p>
         </div>
       </div>
 
       {!status.onDiscord ? (
         /* Not on Discord */
-        <div className="text-center py-4">
-          <div className="text-2xl mb-2">💬</div>
-          <p className="text-xs text-text-muted">
-            Navigate to a Discord server to use this extension.
+        <div className="text-center py-5">
+          <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-surface-700/60 flex items-center justify-center text-text-muted">
+            <Server className="w-5 h-5" />
+          </div>
+          <p className="text-xs text-text-muted mb-1 font-medium">
+            Navigate to Discord in your browser
           </p>
-          <p className="text-[10px] text-text-muted/50 mt-1">
-            <code>discord.com/channels/...</code>
+          <p className="text-[10px] text-text-muted/60 font-mono">
+            discord.com/channels/...
           </p>
         </div>
       ) : (
@@ -136,8 +146,8 @@ export default function App() {
           {/* Server Info */}
           <div className="glass-card p-3 mb-3">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-discord-blurple to-discord-fuchsia/60 flex items-center justify-center text-sm">
-                🟣
+              <div className="w-8 h-8 rounded-lg bg-discord-blurple/20 flex items-center justify-center text-discord-blurple">
+                <Server className="w-4 h-4" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-text-primary truncate">
@@ -151,9 +161,21 @@ export default function App() {
           {/* Quick Stats */}
           {status.hasBlueprint && status.stats && (
             <div className="grid grid-cols-3 gap-1.5 mb-3">
-              <MiniStat icon="📁" value={status.stats.categories} label="Cat" />
-              <MiniStat icon="📝" value={status.stats.totalChannels} label="Chan" />
-              <MiniStat icon="💬" value={status.stats.threads} label="Thrd" />
+              <MiniStat
+                icon={<Folder className="w-3.5 h-3.5 text-text-muted" />}
+                value={status.stats.categories}
+                label="Categories"
+              />
+              <MiniStat
+                icon={<Hash className="w-3.5 h-3.5 text-channel-text" />}
+                value={status.stats.totalChannels}
+                label="Channels"
+              />
+              <MiniStat
+                icon={<MessageCircle className="w-3.5 h-3.5 text-text-secondary" />}
+                value={status.stats.threads}
+                label="Threads"
+              />
             </div>
           )}
 
@@ -162,17 +184,28 @@ export default function App() {
             <button
               onClick={handleAnalyze}
               disabled={analyzing}
-              className="btn-primary w-full"
+              className="btn-primary w-full flex items-center justify-center gap-1.5 py-2 text-xs"
             >
-              {analyzing ? "⏳ Analyzing…" : "🔍 Analyze Server"}
+              {analyzing ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Scanning...</span>
+                </>
+              ) : (
+                <>
+                  <Search className="w-3.5 h-3.5" />
+                  <span>Analyze Server</span>
+                </>
+              )}
             </button>
 
             {status.hasBlueprint && (
               <button
                 onClick={handleOpenSidePanel}
-                className="btn-secondary w-full"
+                className="btn-secondary w-full flex items-center justify-center gap-1.5 py-2 text-xs"
               >
-                📊 Open Dashboard
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Open Dashboard</span>
               </button>
             )}
           </div>
@@ -181,8 +214,8 @@ export default function App() {
 
       {/* Footer */}
       <div className="mt-3 pt-2 border-t border-surface-500/20 text-center">
-        <p className="text-[9px] text-text-muted/40">
-          No tokens extracted · Data source: page-visible
+        <p className="text-[9px] text-text-muted/40 font-mono">
+          Data source: page-visible · Client-side analysis
         </p>
       </div>
     </div>
@@ -194,15 +227,15 @@ function MiniStat({
   value,
   label,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   value: number;
   label: string;
 }) {
   return (
-    <div className="bg-surface-700/50 rounded-lg p-2 text-center">
-      <span className="text-xs">{icon}</span>
+    <div className="bg-surface-700/50 rounded-lg p-2 text-center flex flex-col items-center">
+      <span className="mb-0.5">{icon}</span>
       <div className="text-sm font-bold text-text-primary">{value}</div>
-      <div className="text-[9px] text-text-muted uppercase">{label}</div>
+      <div className="text-[8px] text-text-muted uppercase tracking-wider">{label}</div>
     </div>
   );
 }

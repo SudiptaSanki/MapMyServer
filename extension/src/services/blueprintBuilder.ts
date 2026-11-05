@@ -3,19 +3,22 @@
  *
  *  Takes raw collected data from the content
  *  script or API and normalizes it into a clean
- *  ServerBlueprint with computed statistics.
+ *  ServerBlueprint with computed statistics,
+ *  visibility analysis, and scan quality reports.
  * ───────────────────────────────────────────── */
 
-import type {
-  ServerBlueprint,
-  ServerInfo,
-  Category,
-  Channel,
-  Thread,
-  Role,
-  ServerRules,
-  TreeNode,
-  ChannelType,
+import {
+  type ServerBlueprint,
+  type ServerInfo,
+  type Category,
+  type Channel,
+  type Thread,
+  type Role,
+  type ServerRules,
+  type TreeNode,
+  type ChannelType,
+  type ScanQualityReport,
+  evaluateChannelVisibility,
 } from "@mapmyserver/shared";
 
 import { calculateStatistics } from "./statisticsCalculator";
@@ -29,9 +32,13 @@ interface RawCollectedData {
   threads: Thread[];
   roles?: Role[];
   rules?: ServerRules;
+  scanStartTime?: string;
 }
 
 export function buildBlueprint(data: RawCollectedData): ServerBlueprint {
+  const startTime = data.scanStartTime || new Date().toISOString();
+  const roles = data.roles ? [...data.roles].sort((a, b) => b.position - a.position) : [];
+
   // Deduplicate categories by normalized name
   const categoryMap = new Map<string, Category>();
   const idRemap = new Map<string, string>(); // oldId -> canonicalId
@@ -58,12 +65,23 @@ export function buildBlueprint(data: RawCollectedData): ServerBlueprint {
     (a, b) => a.position - b.position
   );
 
-  // Remap channel parentId if pointing to a duplicate category
+  // Remap channel parentId if pointing to a duplicate category & compute visibility
   const mappedChannels = data.channels.map((ch) => {
-    if (ch.parentId && idRemap.has(ch.parentId)) {
-      return { ...ch, parentId: idRemap.get(ch.parentId)! };
-    }
-    return ch;
+    const parentId = ch.parentId && idRemap.has(ch.parentId) ? idRemap.get(ch.parentId)! : ch.parentId;
+    const parentCat = categories.find((c) => c.id === parentId);
+
+    // Compute visibility assessment using shared permission engine
+    const visibilityAnalysis = evaluateChannelVisibility(
+      { ...ch, parentId },
+      parentCat,
+      roles
+    );
+
+    return {
+      ...ch,
+      parentId,
+      visibilityAnalysis,
+    };
   });
 
   // Sort channels by position within categories
@@ -91,10 +109,52 @@ export function buildBlueprint(data: RawCollectedData): ServerBlueprint {
   }
 
   const threads = [...data.threads];
-  const roles = data.roles ? [...data.roles].sort((a, b) => b.position - a.position) : [];
-
   const partial = { categories, channels, threads, roles };
   const statistics = calculateStatistics(partial);
+
+  // ── Compute Scan Quality Report ───────────────
+  const endTime = new Date().toISOString();
+  const durationMs = Math.max(new Date(endTime).getTime() - new Date(startTime).getTime(), 100);
+
+  const missingDataWarnings: string[] = [];
+  if (roles.length === 0) {
+    missingDataWarnings.push("Roles not scanned. Open Server Settings -> Roles to map role hierarchy.");
+  }
+  const unmappedOverrides = channels.filter((c) => !c.permissions || c.permissions.length === 0).length;
+  if (unmappedOverrides > 0 && channels.length > 0) {
+    missingDataWarnings.push(
+      `${unmappedOverrides} channel(s) evaluated with default visibility rules. Open Edit Channel -> Permissions for private channels.`
+    );
+  }
+
+  let completenessScore = 100;
+  if (roles.length === 0) completenessScore -= 25;
+  if (channels.length === 0) completenessScore -= 50;
+  if (categories.length === 0) completenessScore -= 15;
+  completenessScore = Math.max(completenessScore, 10);
+
+  const scanQuality: ScanQualityReport = {
+    scanStartTime: startTime,
+    scanEndTime: endTime,
+    durationMs,
+    source: data.server.visibility.source,
+    resourcesDiscovered: {
+      categories: data.categories.length,
+      channels: data.channels.length,
+      roles: roles.length,
+      threads: data.threads.length,
+    },
+    resourcesParsed: {
+      categories: categories.length,
+      channels: channels.length,
+      roles: roles.length,
+      threads: threads.length,
+    },
+    resourcesSkipped: Math.max(data.channels.length - channels.length, 0),
+    permissionDataQuality: roles.length > 0 ? "partial" : "none",
+    completenessScore,
+    missingDataWarnings,
+  };
 
   return {
     server: data.server,
@@ -104,8 +164,9 @@ export function buildBlueprint(data: RawCollectedData): ServerBlueprint {
     roles,
     rules: data.rules,
     statistics,
-    collectedAt: new Date().toISOString(),
-    version: 2,
+    scanQuality,
+    collectedAt: endTime,
+    version: 3,
   };
 }
 
@@ -208,53 +269,29 @@ function buildChannelNode(
       description: channel.description,
       purpose: channel.purpose,
       hasContent,
+      visibilityAnalysis: channel.visibilityAnalysis,
     },
   };
 
   return node;
 }
 
-// ── Channel Type Icons ─────────────────────────
-
-export function getChannelIcon(type: ChannelType | "thread" | "server" | "category"): string {
-  switch (type) {
-    case "text":
-      return "📝";
-    case "voice":
-      return "🔊";
-    case "stage":
-      return "🎤";
-    case "forum":
-      return "📋";
-    case "announcement":
-      return "📢";
-    case "media":
-      return "🖼️";
-    case "category":
-      return "📁";
-    case "thread":
-      return "💬";
-    case "server":
-      return "🟣";
-    default:
-      return "#";
-  }
-}
+// ── Clean Channel Prefixes (No Raw Emojis) ────
 
 export function getChannelPrefix(type: ChannelType): string {
   switch (type) {
     case "text":
       return "#";
     case "voice":
-      return "🔊";
+      return "Vol:";
     case "stage":
-      return "🎤";
+      return "Stage:";
     case "forum":
-      return "📋";
+      return "Forum:";
     case "announcement":
-      return "📢";
+      return "Announce:";
     case "media":
-      return "🖼️";
+      return "Media:";
     default:
       return "#";
   }

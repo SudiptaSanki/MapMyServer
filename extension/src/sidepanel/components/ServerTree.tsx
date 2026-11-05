@@ -4,24 +4,26 @@ import { useUIStore } from "@/store/uiStore";
 import { generateAIPrompt } from "@/services/aiPromptGenerator";
 import type { TreeNode, ChannelPurpose } from "@mapmyserver/shared";
 import FilterPanel from "./FilterPanel";
-import { 
-  FolderTree, 
-  Plus, 
-  Minus, 
-  Filter, 
-  Hash, 
-  Volume2, 
-  Mic, 
-  MessageSquare, 
-  Megaphone, 
-  Image as ImageIcon, 
-  Folder, 
-  MessageCircle, 
+import {
+  FolderTree,
+  Plus,
+  Minus,
+  Filter,
+  Hash,
+  Volume2,
+  Mic,
+  MessageSquare,
+  Megaphone,
+  Image as ImageIcon,
+  Folder,
+  MessageCircle,
   Server,
   ChevronRight,
   Sparkles,
   Check,
-  Copy
+  Copy,
+  Lock,
+  ShieldAlert,
 } from "lucide-react";
 
 const PURPOSE_BADGE_STYLES: Record<ChannelPurpose, string> = {
@@ -69,10 +71,11 @@ export default function ServerTree() {
     if (!blueprint) return;
     let treeStr = `# ${blueprint.server.name}\n\n`;
     for (const cat of blueprint.categories) {
-      treeStr += `📁 ${cat.name}\n`;
+      treeStr += `[Category] ${cat.name}\n`;
       const catChannels = blueprint.channels.filter((c) => c.parentId === cat.id);
       for (const ch of catChannels) {
-        treeStr += `  └── #${ch.name} (${ch.type})\n`;
+        const vis = ch.visibilityAnalysis?.classification === "role-restricted" ? " [Restricted]" : "";
+        treeStr += `  └── #${ch.name} (${ch.type}${vis})\n`;
       }
     }
     await navigator.clipboard.writeText(treeStr);
@@ -212,6 +215,7 @@ function TreeNodeComponent({
   const isServer = node.type === "server";
   const isChannel = !isCategory && !isServer && node.type !== "thread";
   const isSelected = selectedChannelId === node.id;
+  const vis = node.metadata?.visibilityAnalysis;
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -264,6 +268,27 @@ function TreeNodeComponent({
         >
           <HighlightedText text={node.name} query={searchQuery} />
         </span>
+
+        {/* Visibility Icon Indicator */}
+        {isChannel && vis && (
+          <>
+            {vis.classification === "role-restricted" && (
+              <span title={`Role Restricted: ${vis.reason}`} className="text-amber-400 flex-shrink-0">
+                <Lock className="w-3 h-3" />
+              </span>
+            )}
+            {vis.classification === "member-restricted" && (
+              <span title={`Member Restricted: ${vis.reason}`} className="text-fuchsia-400 flex-shrink-0">
+                <Lock className="w-3 h-3" />
+              </span>
+            )}
+            {vis.classification === "user-inaccessible" && (
+              <span title={`Inaccessible: ${vis.reason}`} className="text-discord-red flex-shrink-0">
+                <ShieldAlert className="w-3 h-3" />
+              </span>
+            )}
+          </>
+        )}
 
         {/* Content Indicator Dot */}
         {node.metadata?.hasContent && (
@@ -355,7 +380,21 @@ function filterTree(
   query: string,
   filters: ReturnType<typeof useUIStore.getState>["filters"]
 ): TreeNode | null {
+  // Category Focus filter
+  if (filters.selectedCategoryId && node.type === "category" && node.id !== filters.selectedCategoryId) {
+    return null;
+  }
+
+  // Type filter
   if (!shouldShowType(node.type, filters)) return null;
+
+  // Visibility filter for channels
+  if (node.type !== "server" && node.type !== "category" && node.type !== "thread") {
+    const vis = node.metadata?.visibilityAnalysis?.classification || "broadly-accessible";
+    if (vis === "broadly-accessible" && !filters.showPublic) return null;
+    if ((vis === "role-restricted" || vis === "member-restricted") && !filters.showRestricted) return null;
+    if (vis === "user-inaccessible" && !filters.showPrivate) return null;
+  }
 
   let filteredChildren = node.children
     .map((child) => filterTree(child, query, filters))

@@ -134,6 +134,97 @@ export interface PermissionOverwrite {
   deny: string[];
 }
 
+// ── Channel Visibility & Permission Analysis ─────────
+
+export type VisibilityClassification =
+  | "broadly-accessible"
+  | "role-restricted"
+  | "member-restricted"
+  | "user-inaccessible"
+  | "unknown";
+
+export type PermissionFlagName =
+  | "CREATE_INSTANT_INVITE"
+  | "KICK_MEMBERS"
+  | "BAN_MEMBERS"
+  | "ADMINISTRATOR"
+  | "MANAGE_CHANNELS"
+  | "MANAGE_GUILD"
+  | "ADD_REACTIONS"
+  | "VIEW_AUDIT_LOG"
+  | "PRIORITY_SPEAKER"
+  | "STREAM"
+  | "VIEW_CHANNEL"
+  | "SEND_MESSAGES"
+  | "SEND_TTS_MESSAGES"
+  | "MANAGE_MESSAGES"
+  | "EMBED_LINKS"
+  | "ATTACH_FILES"
+  | "READ_MESSAGE_HISTORY"
+  | "MENTION_EVERYONE"
+  | "USE_EXTERNAL_EMOJIS"
+  | "VIEW_GUILD_INSIGHTS"
+  | "CONNECT"
+  | "SPEAK"
+  | "MUTE_MEMBERS"
+  | "DEAFEN_MEMBERS"
+  | "MOVE_MEMBERS"
+  | "USE_VAD"
+  | "CHANGE_NICKNAME"
+  | "MANAGE_NICKNAMES"
+  | "MANAGE_ROLES"
+  | "MANAGE_WEBHOOKS"
+  | "MANAGE_GUILD_EXPRESSIONS"
+  | "USE_APPLICATION_COMMANDS"
+  | "REQUEST_TO_SPEAK"
+  | "MANAGE_EVENTS"
+  | "MANAGE_THREADS"
+  | "CREATE_PUBLIC_THREADS"
+  | "CREATE_PRIVATE_THREADS"
+  | "USE_EXTERNAL_STICKERS"
+  | "SEND_MESSAGES_IN_THREADS"
+  | "USE_EMBEDDED_ACTIVITIES"
+  | "MODERATE_MEMBERS"
+  | "VIEW_CREATOR_MONETIZATION_ANALYTICS"
+  | "USE_SOUNDBOARD"
+  | "USE_EXTERNAL_SOUNDS"
+  | "SEND_VOICE_MESSAGES";
+
+export interface ChannelVisibilityAnalysis {
+  classification: VisibilityClassification;
+  everyoneCanView: boolean;
+  rolesWithAccess: string[];
+  isCategorySynced: boolean;
+  hasChannelOverrides: boolean;
+  currentUserCanAccess: boolean | null;
+  reason: string;
+}
+
+// ── Scan Quality & Completeness Report ──────────
+
+export interface ScanQualityReport {
+  scanStartTime: string;
+  scanEndTime: string;
+  durationMs: number;
+  source: DataSource;
+  resourcesDiscovered: {
+    categories: number;
+    channels: number;
+    roles: number;
+    threads: number;
+  };
+  resourcesParsed: {
+    categories: number;
+    channels: number;
+    roles: number;
+    threads: number;
+  };
+  resourcesSkipped: number;
+  permissionDataQuality: "none" | "partial" | "full";
+  completenessScore: number;
+  missingDataWarnings: string[];
+}
+
 // ── Channel ────────────────────────────────────
 
 export interface Channel {
@@ -146,6 +237,7 @@ export interface Channel {
   description?: string;
   threadIds?: string[];
   permissions?: PermissionOverwrite[];
+  visibilityAnalysis?: ChannelVisibilityAnalysis;
   metadata?: ChannelMetadata;
   content?: ChannelContent;
   purpose?: PurposeClassification;
@@ -212,6 +304,7 @@ export interface ServerBlueprint {
   roles: Role[];
   rules?: ServerRules;
   statistics: ServerStatistics;
+  scanQuality?: ScanQualityReport;
   collectedAt: string;
   version: number;
 }
@@ -253,5 +346,19 @@ export interface TreeNode {
     description?: string;
     purpose?: PurposeClassification;
     hasContent?: boolean;
+    visibilityAnalysis?: ChannelVisibilityAnalysis;
   };
 }
+
+// ── Permission Engine Exports ──────────────────
+export * from "./permissionEngine";
+
+// ── Security Audit Engine Exports ──────────────
+export * from "./securityAuditEngine";
+
+// ── AI & Architecture Planning Exports ─────────
+export * from "./aiTypes";
+export * from "./architectureDiffEngine";
+export * from "./aiContextBuilder";
+export * from "./documentationGenerator";
+

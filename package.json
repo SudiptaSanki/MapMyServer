@@ -7,5 +7,15 @@
     "extension",
     "shared",
     "backend"
-  ]
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "build:shared": "npm run build -w shared",
+    "build:extension": "npm run build -w extension",
+    "build:backend": "npm run build -w backend",
+    "build": "npm run build:shared && npm run build:extension && npm run build:backend"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9"
+  }
 }

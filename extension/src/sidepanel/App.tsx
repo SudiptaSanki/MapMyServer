@@ -6,6 +6,9 @@ import ServerTree from "./components/ServerTree";
 import ServerGraph from "./components/ServerGraph";
 import Statistics from "./components/Statistics";
 import ChangeHistory from "./components/ChangeHistory";
+import RoleMatrix from "./components/RoleMatrix";
+import SecurityDashboard from "./components/SecurityDashboard";
+import AIArchitect from "./components/AIArchitect";
 import SearchBar from "./components/SearchBar";
 import ChannelDetail from "./components/ChannelDetail";
 import SettingsModal from "./components/SettingsModal";
@@ -20,7 +23,10 @@ import {
   FolderTree, 
   Beaker, 
   Loader2,
-  Server
+  Server,
+  Shield,
+  ShieldAlert,
+  Sparkles,
 } from "lucide-react";
 
 export default function App() {
@@ -32,6 +38,9 @@ export default function App() {
     { id: "overview", label: "Overview", icon: <LayoutDashboard className="w-4 h-4" /> },
     { id: "tree", label: "Tree", icon: <FolderTree className="w-4 h-4" /> },
     { id: "graph", label: "Graph", icon: <Network className="w-4 h-4" /> },
+    { id: "roles", label: "Roles", icon: <Shield className="w-4 h-4" /> },
+    { id: "audit", label: "Audit", icon: <ShieldAlert className="w-4 h-4" /> },
+    { id: "architect", label: "AI Architect", icon: <Sparkles className="w-4 h-4" /> },
     { id: "stats", label: "Stats", icon: <LineChart className="w-4 h-4" /> },
     { id: "history", label: "History", icon: <FileText className="w-4 h-4" /> },
   ];
@@ -69,6 +78,12 @@ export default function App() {
         return <ServerTree />;
       case "graph":
         return <ServerGraph />;
+      case "roles":
+        return <RoleMatrix />;
+      case "audit":
+        return <SecurityDashboard />;
+      case "architect":
+        return <AIArchitect />;
       case "stats":
         return <Statistics />;
       case "history":

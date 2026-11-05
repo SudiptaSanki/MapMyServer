@@ -55,18 +55,18 @@ export async function parseChannelSidebarAsync(): Promise<ParsedChannelStructure
     // If the sidebar is virtualized and scrollable, perform a fast scan sweep
     if (scroller && scroller.scrollHeight > scroller.clientHeight + 50) {
       const initialScrollTop = scroller.scrollTop;
-      const step = Math.max(Math.floor(scroller.clientHeight * 0.75), 250);
+      const step = Math.max(Math.floor(scroller.clientHeight * 0.7), 200);
       const maxScroll = scroller.scrollHeight - scroller.clientHeight;
 
       for (let pos = 0; pos <= maxScroll; pos += step) {
         scroller.scrollTop = pos;
-        await delay(45);
+        await delay(120); // Allow virtualized React DOM chunks to mount
         parseVisibleSlice(channelNav, categories, channels, threads, processedIds, state);
       }
 
       // Bottom-most slice
       scroller.scrollTop = maxScroll;
-      await delay(45);
+      await delay(120);
       parseVisibleSlice(channelNav, categories, channels, threads, processedIds, state);
 
       // Restore user's scroll position
@@ -490,7 +490,7 @@ function inferChannelTypeFromElement(el: Element): ChannelType {
 
 function cleanChannelName(name: string): string {
   return name
-    .replace(/^[#🔊🎤📋📢🖼️💬]\s*/, "")
+    .replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}#🔊🎤📋📢🖼️💬┃・—–-]+\s*/gu, "")
     .replace(/\s*\(.*?\)\s*$/, "")
     .trim();
 }

@@ -15,11 +15,14 @@
 
 import {
   extractGuildIdFromUrl,
+  extractChannelIdFromUrl,
   isOnDiscordServer,
   parseServerInfo,
 } from "./parsers/serverParser";
 
 import { parseChannelSidebarAsync } from "./parsers/channelParser";
+import { parseRolesAsync } from "./parsers/roleParser";
+import { parseChannelPermissionsAsync } from "./parsers/permissionParser";
 
 import type {
   ServerDetectedMessage,
@@ -28,6 +31,8 @@ import type {
   CollectionProgressMessage,
   CollectionErrorMessage,
   CollectStructureMessage,
+  RolesCollectedMessage,
+  ChannelPermissionsCollectedMessage,
 } from "@/types/messages";
 
 import type { AnalysisStep } from "@mapmyserver/shared";
@@ -35,7 +40,9 @@ import type { AnalysisStep } from "@mapmyserver/shared";
 // ── State ──────────────────────────────────────
 
 let lastGuildId: string | null = null;
+let lastChannelId: string | null = null;
 let isCollecting = false;
+let settingsCheckInterval: number | null = null;
 
 // ── Initialization ─────────────────────────────
 
@@ -47,6 +54,9 @@ function init() {
 
   // Watch for SPA navigation (switching servers or channels)
   setupNavigationWatcher();
+
+  // Watch for Settings Modals
+  setupSettingsObserver();
 
   // Listen for messages from background & popup/sidepanel
   chrome.runtime.onMessage.addListener(handleMessage);
@@ -131,6 +141,51 @@ function setupNavigationWatcher() {
       detectCurrentServer();
     }
   }, 1500);
+}
+
+// ── Settings Observer ──────────────────────────
+
+function setupSettingsObserver() {
+  // Passively check every 2 seconds if a settings modal is open
+  if (settingsCheckInterval) clearInterval(settingsCheckInterval);
+  
+  settingsCheckInterval = window.setInterval(async () => {
+    if (!lastGuildId) return;
+    
+    // Quick heuristic: look for settings sidebar
+    const isSettingsOpen = document.querySelector('[class*="standardSidebarView"]') !== null || 
+                           document.querySelector('[class*="layerContainer"]') !== null;
+                           
+    if (!isSettingsOpen) return;
+    
+    // Check if on Roles tab
+    const selectedItem = document.querySelector('[class*="item-"][aria-selected="true"]');
+    const selectedText = selectedItem?.textContent?.trim().toLowerCase();
+    
+    if (selectedText === "roles") {
+      const roles = await parseRolesAsync();
+      if (roles.length > 0) {
+        const msg: RolesCollectedMessage = {
+          type: "ROLES_COLLECTED",
+          payload: { guildId: lastGuildId, roles },
+        };
+        chrome.runtime.sendMessage(msg).catch(() => {});
+      }
+    } 
+    else if (selectedText === "permissions") {
+      // Channel settings Permissions tab
+      const permissions = await parseChannelPermissionsAsync();
+      const channelId = extractChannelIdFromUrl(window.location.href) || lastChannelId;
+      
+      if (permissions.length > 0 && channelId) {
+        const msg: ChannelPermissionsCollectedMessage = {
+          type: "CHANNEL_PERMISSIONS_COLLECTED",
+          payload: { guildId: lastGuildId, channelId, permissions },
+        };
+        chrome.runtime.sendMessage(msg).catch(() => {});
+      }
+    }
+  }, 2000);
 }
 
 // ── Structure Collection ───────────────────────

@@ -10,19 +10,20 @@ export function generateAIPrompt(blueprint: ServerBlueprint): string {
   // Build tree text
   let treeText = "";
   for (const cat of categories) {
-    treeText += `\n### 📁 ${cat.name}\n`;
+    treeText += `\n### [Category] ${cat.name}\n`;
     const catChannels = channels.filter((c) => c.parentId === cat.id);
     if (catChannels.length === 0) {
       treeText += `  *(No channels detected)*\n`;
     }
     for (const chan of catChannels) {
       const purposeTag = chan.purpose ? ` [Purpose: ${chan.purpose.purpose}]` : "";
+      const visTag = chan.visibilityAnalysis ? ` [Access: ${chan.visibilityAnalysis.classification}]` : "";
       const topicText = chan.topic ? ` - Topic: "${chan.topic}"` : "";
-      treeText += `- #${chan.name} (${chan.type}${purposeTag})${topicText}\n`;
+      treeText += `- #${chan.name} (${chan.type}${purposeTag}${visTag})${topicText}\n`;
 
       const chanThreads = threads.filter((t) => t.parentId === chan.id);
       for (const thr of chanThreads) {
-        treeText += `  └── 💬 Thread: "${thr.name}"\n`;
+        treeText += `  └── Thread: "${thr.name}"\n`;
       }
     }
   }
@@ -30,11 +31,12 @@ export function generateAIPrompt(blueprint: ServerBlueprint): string {
   // Uncategorized channels
   const uncat = channels.filter((c) => !c.parentId && c.type !== "category");
   if (uncat.length > 0) {
-    treeText += `\n### 📁 Uncategorized\n`;
+    treeText += `\n### [Category] Uncategorized\n`;
     for (const chan of uncat) {
       const purposeTag = chan.purpose ? ` [Purpose: ${chan.purpose.purpose}]` : "";
+      const visTag = chan.visibilityAnalysis ? ` [Access: ${chan.visibilityAnalysis.classification}]` : "";
       const topicText = chan.topic ? ` - Topic: "${chan.topic}"` : "";
-      treeText += `- #${chan.name} (${chan.type}${purposeTag})${topicText}\n`;
+      treeText += `- #${chan.name} (${chan.type}${purposeTag}${visTag})${topicText}\n`;
     }
   }
 
@@ -57,7 +59,7 @@ export function generateAIPrompt(blueprint: ServerBlueprint): string {
       .join("\n");
   }
 
-  return `# 🏛️ Discord Community Architecture & Role Optimization Request
+  return `# Discord Community Architecture & Role Optimization Request
 
 I have extracted the current structural blueprint of my Discord server **"${server.name}"** using MapMyServer.
 Please act as an **expert Discord Community Architect, Systems Designer, and Moderation Consultant**.

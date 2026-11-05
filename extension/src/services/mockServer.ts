@@ -3,7 +3,9 @@ import type {
   VisibilityInfo,
   ExtractedContent,
   Role,
+  Channel,
 } from "@mapmyserver/shared";
+import { buildBlueprint } from "./blueprintBuilder";
 
 const vis: VisibilityInfo = {
   source: "discord-api",
@@ -50,7 +52,7 @@ const mockRoles: Role[] = [
   { id: "role-member", name: "Community Member", color: "#2ecc71", position: 1, memberCount: 1250, hoist: false, mentionable: false, visibility: vis },
 ];
 
-export const MOCK_SERVER: ServerBlueprint = {
+const rawMockData = {
   server: {
     id: "mock-123456789",
     name: "GDG Community & Developer Hub",
@@ -67,6 +69,7 @@ export const MOCK_SERVER: ServerBlueprint = {
     { id: "cat-2", name: "👥 COMMUNITY & NETWORKING", position: 1, channelIds: ["chan-introductions", "chan-general", "chan-showcase"], visibility: vis },
     { id: "cat-3", name: "💻 ENGINEERING & DEV", position: 2, channelIds: ["chan-web", "chan-android", "chan-help"], visibility: vis },
     { id: "cat-4", name: "📚 KNOWLEDGE & EVENTS", position: 3, channelIds: ["chan-resources", "chan-events", "chan-stage", "chan-voice"], visibility: vis },
+    { id: "cat-5", name: "🔒 STAFF & LEADERSHIP", position: 4, channelIds: ["chan-staff-lounge"], visibility: vis },
   ],
   channels: [
     // Information
@@ -283,7 +286,23 @@ export const MOCK_SERVER: ServerBlueprint = {
       threadIds: [],
       visibility: vis,
     },
-  ],
+    {
+      id: "chan-staff-lounge",
+      name: "staff-lounge",
+      type: "text",
+      parentId: "cat-5",
+      position: 0,
+      topic: "Private coordination channel for community leaders and moderators.",
+      purpose: { purpose: "INTERNAL", confidence: 1.0, source: "metadata" },
+      threadIds: [],
+      permissions: [
+        { id: "@everyone", type: "role", allow: [], deny: ["VIEW_CHANNEL"] },
+        { id: "role-mod", type: "role", allow: ["VIEW_CHANNEL", "SEND_MESSAGES"], deny: [] },
+        { id: "role-admin", type: "role", allow: ["VIEW_CHANNEL", "SEND_MESSAGES"], deny: [] },
+      ],
+      visibility: vis,
+    },
+  ] as Channel[],
   threads: [
     {
       id: "thread-1",
@@ -310,43 +329,13 @@ export const MOCK_SERVER: ServerBlueprint = {
     sourceChannelId: "chan-rules",
     sourceChannelName: "rules",
   },
-  statistics: {
-    categories: 4,
-    textChannels: 8,
-    voiceChannels: 1,
-    stageChannels: 1,
-    forumChannels: 0,
-    announcementChannels: 1,
-    mediaChannels: 0,
-    totalChannels: 10,
-    threads: 2,
-    activeThreads: 2,
-    archivedThreads: 0,
-    roles: 5,
-    channelsPerCategory: {
-      "cat-1": 3,
-      "cat-2": 3,
-      "cat-3": 3,
-      "cat-4": 4,
-    },
-    channelsWithTopics: 10,
-    channelsWithContent: 6,
-    channelsWithPurpose: 12,
-    purposeDistribution: {
-      ONBOARDING: 2,
-      GOVERNANCE: 1,
-      INFORMATION: 1,
-      COMMUNITY: 2,
-      SUPPORT: 1,
-      KNOWLEDGE: 1,
-      EVENTS: 2,
-      TEAM: 2,
-      INTERNAL: 0,
-      SHOWCASE: 1,
-      FEEDBACK: 0,
-      OTHER: 0,
-    },
-  },
-  collectedAt: new Date().toISOString(),
-  version: 2,
 };
+
+export const MOCK_SERVER: ServerBlueprint = buildBlueprint({
+  server: rawMockData.server,
+  categories: rawMockData.categories,
+  channels: rawMockData.channels,
+  threads: rawMockData.threads,
+  roles: rawMockData.roles,
+  rules: rawMockData.rules,
+});

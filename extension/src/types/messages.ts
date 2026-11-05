@@ -4,7 +4,7 @@
  *  Content Script ↔ Background ↔ Side Panel/Popup
  * ───────────────────────────────────────────── */
 
-import type { ServerInfo, Channel, Category, Thread, ServerBlueprint, AnalysisStep } from "@mapmyserver/shared";
+import type { ServerInfo, Channel, Category, Thread, ServerBlueprint, AnalysisStep, Role, PermissionOverwrite } from "@mapmyserver/shared";
 
 // ── Content Script → Background ────────────────
 
@@ -46,6 +46,23 @@ export interface CollectionErrorMessage {
   payload: {
     message: string;
     step?: string;
+  };
+}
+
+export interface RolesCollectedMessage {
+  type: "ROLES_COLLECTED";
+  payload: {
+    guildId: string;
+    roles: Role[];
+  };
+}
+
+export interface ChannelPermissionsCollectedMessage {
+  type: "CHANNEL_PERMISSIONS_COLLECTED";
+  payload: {
+    guildId: string;
+    channelId: string;
+    permissions: PermissionOverwrite[];
   };
 }
 
@@ -137,7 +154,9 @@ export type ContentToBackgroundMessage =
   | NavigationChangedMessage
   | StructureCollectedMessage
   | CollectionProgressMessage
-  | CollectionErrorMessage;
+  | CollectionErrorMessage
+  | RolesCollectedMessage
+  | ChannelPermissionsCollectedMessage;
 
 export type BackgroundToContentMessage =
   | CollectStructureMessage

@@ -9,7 +9,7 @@ import { create } from "zustand";
 
 // ── Tab Types ──────────────────────────────────
 
-export type SidePanelTab = "overview" | "tree" | "graph" | "stats" | "history";
+export type SidePanelTab = "overview" | "tree" | "graph" | "roles" | "audit" | "architect" | "stats" | "history";
 
 // ── Filter State ───────────────────────────────
 
@@ -22,6 +22,10 @@ export interface FilterState {
   showAnnouncements: boolean;
   showThreads: boolean;
   collapseEmpty: boolean;
+  showPublic: boolean;
+  showRestricted: boolean;
+  showPrivate: boolean;
+  selectedCategoryId: string | null;
 }
 
 // ── Store Shape ────────────────────────────────
@@ -42,6 +46,7 @@ interface UIState {
   // Filters
   filters: FilterState;
   toggleFilter: (key: keyof FilterState) => void;
+  setSelectedCategoryId: (categoryId: string | null) => void;
   resetFilters: () => void;
 
   // Tree expand/collapse
@@ -66,6 +71,10 @@ const defaultFilters: FilterState = {
   showAnnouncements: true,
   showThreads: true,
   collapseEmpty: false,
+  showPublic: true,
+  showRestricted: true,
+  showPrivate: true,
+  selectedCategoryId: null,
 };
 
 // ── Store ──────────────────────────────────────
@@ -89,6 +98,10 @@ export const useUIStore = create<UIState>((set) => ({
     set((state) => ({
       filters: { ...state.filters, [key]: !state.filters[key] },
     })),
+  setSelectedCategoryId: (categoryId) =>
+    set((state) => ({
+      filters: { ...state.filters, selectedCategoryId: categoryId },
+    })),
   resetFilters: () => set({ filters: { ...defaultFilters } }),
 
   // Tree expand/collapse
@@ -103,12 +116,10 @@ export const useUIStore = create<UIState>((set) => ({
       }
       return { expandedNodes: next };
     }),
-  expandAll: () =>
-    set({ expandedNodes: new Set(["__all__"]) }),
-  collapseAll: () =>
-    set({ expandedNodes: new Set() }),
+  expandAll: () => set({ expandedNodes: new Set(["__all__"]) }),
+  collapseAll: () => set({ expandedNodes: new Set() }),
 
-  // Filter panel
+  // Filter panel visibility
   showFilterPanel: false,
   toggleFilterPanel: () =>
     set((state) => ({ showFilterPanel: !state.showFilterPanel })),

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useServerStore } from "@/store/serverStore";
+import { Lock } from "lucide-react";
 
 export default function ServerList() {
   const { 
@@ -46,8 +47,10 @@ export default function ServerList() {
   if (!backendToken) {
     return (
       <div className="flex flex-col items-center justify-center p-6 bg-surface-900 border border-surface-500 rounded-lg m-4">
-        <div className="text-4xl mb-4">🔐</div>
-        <h3 className="text-lg font-bold text-text-primary mb-2">Connect Discord</h3>
+        <div className="w-12 h-12 mb-3 rounded-xl bg-surface-800 flex items-center justify-center text-discord-blurple">
+          <Lock className="w-6 h-6" />
+        </div>
+        <h3 className="text-base font-bold text-text-primary mb-1">Connect Discord</h3>
         <p className="text-sm text-text-muted text-center mb-6">
           Link your Discord account to map servers you are a member of.
         </p>

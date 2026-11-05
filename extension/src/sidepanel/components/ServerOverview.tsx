@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useServerStore } from "@/store/serverStore";
 import { useUIStore } from "@/store/uiStore";
 import { generateAIPrompt } from "@/services/aiPromptGenerator";
+import { runSecurityAudit } from "@mapmyserver/shared";
 import AnalysisProgress from "./AnalysisProgress";
 import {
   Folder,
@@ -20,7 +21,11 @@ import {
   AlertTriangle,
   Sparkles,
   Check,
-  Copy
+  Copy,
+  Compass,
+  ShieldCheck,
+  ShieldAlert,
+  ArrowRight,
 } from "lucide-react";
 
 const STAT_ITEMS = [
@@ -39,9 +44,11 @@ const STAT_ITEMS = [
 export default function ServerOverview() {
   const { currentServer, blueprint, isAnalyzing, analysisError, requestAnalysis } =
     useServerStore();
-  const { setSelectedChannelId } = useUIStore();
+  const { setSelectedChannelId, setActiveTab } = useUIStore();
   const [copiedAI, setCopiedAI] = useState(false);
   const [copiedTree, setCopiedTree] = useState(false);
+
+  const auditReport = useMemo(() => (blueprint ? runSecurityAudit(blueprint) : null), [blueprint]);
 
   const handleCopyAIPrompt = async () => {
     if (!blueprint) return;
@@ -55,10 +62,11 @@ export default function ServerOverview() {
     if (!blueprint) return;
     let treeStr = `# ${blueprint.server.name}\n\n`;
     for (const cat of blueprint.categories) {
-      treeStr += `📁 ${cat.name}\n`;
+      treeStr += `[Category] ${cat.name}\n`;
       const catChannels = blueprint.channels.filter((c) => c.parentId === cat.id);
       for (const ch of catChannels) {
-        treeStr += `  └── #${ch.name} (${ch.type})\n`;
+        const vis = ch.visibilityAnalysis?.classification === "role-restricted" ? " [Restricted]" : "";
+        treeStr += `  └── #${ch.name} (${ch.type}${vis})\n`;
       }
     }
     await navigator.clipboard.writeText(treeStr);
@@ -69,6 +77,8 @@ export default function ServerOverview() {
   if (isAnalyzing) {
     return <AnalysisProgress />;
   }
+
+  const scan = blueprint?.scanQuality;
 
   return (
     <div className="flex flex-col gap-3 animate-fade-in pb-4">
@@ -121,6 +131,103 @@ export default function ServerOverview() {
         )}
       </div>
 
+      {/* Scan Quality & Reliability Report (Part 7) */}
+      {blueprint && scan && (
+        <div className="glass-card p-3 border-discord-blurple/30 space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-1.5 font-bold text-text-primary">
+              <ShieldCheck className="w-4 h-4 text-discord-blurple" />
+              <span>Scan Completeness & Reliability</span>
+            </div>
+            <span className="text-[10px] font-mono text-emerald-400 font-bold">
+              {scan.completenessScore}% Complete
+            </span>
+          </div>
+
+          {/* Progress bar */}
+          <div className="w-full h-1.5 bg-surface-700 rounded-full overflow-hidden">
+            <div
+              className={`h-full transition-all duration-500 rounded-full ${
+                scan.completenessScore > 80
+                  ? "bg-emerald-400"
+                  : scan.completenessScore > 50
+                  ? "bg-amber-400"
+                  : "bg-rose-400"
+              }`}
+              style={{ width: `${scan.completenessScore}%` }}
+            />
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 text-center text-[10px] pt-1">
+            <div className="bg-surface-800/80 p-1.5 rounded border border-surface-500/20">
+              <span className="text-text-muted block">Source</span>
+              <span className="font-semibold text-text-primary capitalize">{scan.source}</span>
+            </div>
+            <div className="bg-surface-800/80 p-1.5 rounded border border-surface-500/20">
+              <span className="text-text-muted block">Duration</span>
+              <span className="font-mono text-text-primary">{scan.durationMs}ms</span>
+            </div>
+            <div className="bg-surface-800/80 p-1.5 rounded border border-surface-500/20">
+              <span className="text-text-muted block">Parsed / Disc.</span>
+              <span className="font-mono text-text-primary">
+                {scan.resourcesParsed.channels}/{scan.resourcesDiscovered.channels}
+              </span>
+            </div>
+          </div>
+
+          {scan.missingDataWarnings.length > 0 && (
+            <div className="space-y-1 pt-1">
+              {scan.missingDataWarnings.map((warn, i) => (
+                <div key={i} className="text-[10px] text-amber-300 bg-amber-500/10 border border-amber-500/20 p-1.5 rounded flex items-start gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.2" />
+                  <span>{warn}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Security Health Posture Quick Card */}
+      {blueprint && auditReport && (
+        <div className="glass-card p-3 border-discord-blurple/30 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div
+                className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm border ${
+                  auditReport.score >= 90
+                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                    : auditReport.score >= 75
+                    ? "bg-sky-500/10 text-sky-400 border-sky-500/30"
+                    : auditReport.score >= 50
+                    ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                    : "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                }`}
+              >
+                {auditReport.grade}
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5 text-xs font-bold text-text-primary">
+                  <ShieldAlert className="w-3.5 h-3.5 text-discord-blurple" />
+                  <span>Security & Health Audit</span>
+                </div>
+                <div className="text-[10px] text-text-muted">
+                  Score: {auditReport.score}/100 • {auditReport.summary.totalFindings} findings
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setActiveTab("audit")}
+              className="btn-secondary text-[11px] py-1 px-2.5 flex items-center gap-1 text-text-primary hover:text-white"
+            >
+              <span>Audit Center</span>
+              <ArrowRight className="w-3 h-3 text-discord-blurple" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* AI Review Export Card */}
       {blueprint && (
         <div className="p-3 bg-gradient-to-r from-discord-blurple/20 via-surface-900 to-discord-fuchsia/10 border border-discord-blurple/40 rounded-xl shadow-lg flex flex-col gap-2">
@@ -146,7 +253,7 @@ export default function ServerOverview() {
             </button>
             <button
               onClick={handleCopySimpleTree}
-              title="Copy simple Markdown tree"
+              title="Copy simple text tree"
               className="btn-secondary text-xs py-2 px-3 flex items-center justify-center gap-1"
             >
               {copiedTree ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
@@ -183,6 +290,42 @@ export default function ServerOverview() {
                 + {blueprint.rules.rules.length - 3} more rules (click channel to view all)
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Deep Mapping Guide */}
+      {blueprint && (
+        <div className="glass-card p-3 border-discord-fuchsia/30 bg-gradient-to-br from-surface-900 to-discord-fuchsia/5">
+          <div className="flex items-center gap-2 mb-2 font-bold text-xs text-text-primary">
+            <Compass className="w-4 h-4 text-discord-fuchsia" />
+            <span>Deep Mapping Guide</span>
+          </div>
+          <div className="space-y-2 text-xs text-text-secondary">
+            {blueprint.roles.length === 0 ? (
+              <div className="flex items-start gap-2 p-2 bg-surface-800/80 rounded border border-discord-red/20">
+                <div className="w-1.5 h-1.5 rounded-full bg-discord-red mt-1 flex-shrink-0" />
+                <div>
+                  <span className="text-text-primary font-semibold block mb-0.5">Missing Roles</span>
+                  Open <strong>Server Settings ➔ Roles</strong> in Discord to collect role data.
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-emerald-400">
+                <Check className="w-4 h-4" /> Collected {blueprint.roles.length} roles
+              </div>
+            )}
+            
+            <div className="flex items-start gap-2 p-2 bg-surface-800/80 rounded border border-discord-blurple/20">
+              <div className="w-1.5 h-1.5 rounded-full bg-discord-blurple mt-1 flex-shrink-0" />
+              <div>
+                <span className="text-text-primary font-semibold block mb-0.5">Channel Permissions</span>
+                <span className="block mb-1">
+                  {blueprint.channels.filter(c => c.permissions && c.permissions.length > 0).length} channels mapped.
+                </span>
+                Open <strong>Edit Channel ➔ Permissions</strong> for any private channel to collect its access rules.
+              </div>
+            </div>
           </div>
         </div>
       )}
