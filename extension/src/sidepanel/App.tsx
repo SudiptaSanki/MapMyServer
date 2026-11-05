@@ -17,6 +17,7 @@ import ChannelDetail from "./components/ChannelDetail";
 import SettingsModal from "./components/SettingsModal";
 import ServerComparison from "./components/ServerComparison";
 import SmartCloner from "./components/SmartCloner";
+import OnboardingModal from "./components/OnboardingModal";
 import { 
   LayoutDashboard, 
   Network, 
@@ -37,12 +38,14 @@ import {
   Download,
   GitCompare,
   Copy,
+  HelpCircle,
 } from "lucide-react";
 
 export default function App() {
   const { currentServer, blueprint, checkActiveTab, requestAnalysis } = useServerStore();
   const { activeTab, setActiveTab, selectedChannelId, experienceMode, setExperienceMode } = useUIStore();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
 
   const ALL_TABS: { id: SidePanelTab; label: string; icon: React.ReactNode; beginner: boolean }[] = [
     { id: "overview", label: "Overview", icon: <LayoutDashboard className="w-4 h-4" />, beginner: true },
@@ -64,10 +67,17 @@ export default function App() {
     ? ALL_TABS.filter((t) => t.beginner)
     : ALL_TABS;
 
-  // On mount, actively check the current tab
+  // On mount, actively check the current tab & first-time onboarding
   useEffect(() => {
     checkActiveTab();
     chrome.runtime.sendMessage({ type: "REQUEST_SERVER_LIST" }).catch(() => {});
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.get("has_seen_onboarding").then((res) => {
+        if (!res?.has_seen_onboarding) {
+          setIsOnboardingOpen(true);
+        }
+      }).catch(() => {});
+    }
   }, [checkActiveTab]);
 
   const isServerActive = currentServer.onDiscord || !!blueprint;
@@ -157,6 +167,13 @@ export default function App() {
               <RefreshCw className="w-4 h-4" />
             </button>
             <button
+              onClick={() => setIsOnboardingOpen(true)}
+              title="Help & User Walkthrough"
+              className="w-7 h-7 rounded-lg bg-surface-700/60 hover:bg-surface-600 text-text-muted hover:text-text-primary flex items-center justify-center transition-colors"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+            <button
               onClick={() => setIsSettingsOpen(true)}
               title="Configure Settings & API"
               className="w-7 h-7 rounded-lg bg-surface-700/60 hover:bg-surface-600 text-text-muted hover:text-text-primary flex items-center justify-center transition-colors"
@@ -218,6 +235,12 @@ export default function App() {
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+      />
+
+      {/* First-Time User Walkthrough & Guide */}
+      <OnboardingModal
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
       />
 
       {/* Footer */}

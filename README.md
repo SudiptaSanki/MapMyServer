@@ -5,320 +5,190 @@
 <h1 align="center">MapMyServer</h1>
 
 <p align="center">
-  <strong>Discord Server Blueprint Analyzer</strong><br/>
-  A Chrome Extension + Backend that maps, analyzes, and visualizes the full architecture of Discord communities.
+  <strong>Standalone Discord Server Architecture Intelligence, Security Auditing & Recreation Platform</strong><br/>
+  An open-source Chrome extension that inspects, analyzes, compares, optimizes, and recreates Discord server architectures.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Chrome_Extension-Manifest_V3-4285F4?logo=google-chrome&logoColor=white" />
-  <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white" />
-  <img src="https://img.shields.io/badge/TypeScript-5.0-3178C6?logo=typescript&logoColor=white" />
-  <img src="https://img.shields.io/badge/Vite-5.x-646CFF?logo=vite&logoColor=white" />
-  <img src="https://img.shields.io/badge/License-MIT-green" />
+  <img src="https://img.shields.io/badge/Release-v1.0.0_Stable-emerald" alt="Release" />
+  <img src="https://img.shields.io/badge/Chrome_Extension-Manifest_V3-4285F4?logo=google-chrome&logoColor=white" alt="Chrome Extension" />
+  <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white" alt="React 19" />
+  <img src="https://img.shields.io/badge/TypeScript-5.0-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Vite-5.x-646CFF?logo=vite&logoColor=white" alt="Vite" />
+  <img src="https://img.shields.io/badge/Tests-63%20Passed-brightgreen" alt="Tests" />
+  <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
 </p>
 
 ---
 
-## What Is This?
+## 🌟 What Is MapMyServer?
 
-**MapMyServer** turns any Discord server into a structured, analyzable blueprint. Instead of manually browsing through dozens of categories and channels, you get:
+**MapMyServer** is a standalone, client-side Chrome browser extension that turns Discord servers into analyzable, reproducible architectural blueprints. Whether you are a community founder, administrator, moderator, or Discord bot developer, MapMyServer eliminates manual guesswork by providing deep visibility into server taxonomies, role hierarchies, and permission configurations.
 
-- A **collapsible tree** of the entire server hierarchy with category sub-divisions
-- A **node graph** (React Flow) showing how categories and channels connect
-- **🤖 One-Click AI Optimizer Export**: Generate ready-to-paste prompts for ChatGPT, Claude, or Gemini to audit your community architecture, suggest missing channels, and build a complete role & permission hierarchy
-- **⚡ Live Auto-Reload & Server Tracking**: Automatically tracks Discord sidebar edits in real-time and switches blueprints as you navigate between servers
-- **🌀 Virtualized Scroller Scanner**: Sweeps large Discord servers with 50+ categories to capture all off-screen channels
-- **Channel purpose classification** (Onboarding, Governance, Support, Events, etc.)
-- **Rich channel detail cards** with topics, instructions, templates, and rules
-- **Source tracking & Provenance** — every piece of extracted data knows exactly where it came from
-- **Statistics dashboard** with content coverage, purpose distribution, and structural metrics
+### The Central Workflow
+```
+DISCOVER ──▶ SCAN ──▶ ANALYZE ──▶ UNDERSTAND ──▶ CUSTOMIZE ──▶ COMPARE ──▶ RECREATE
+```
 
----
-
-## ⚖️ Two Ways to Use MapMyServer: Browser Mode vs. Developer Mode
-
-You choose how deep you want to go. For standard structure mapping, **no developer portal or coding is required**.
-
-| Feature | 🌐 Mode 1: Browser Mode (DOM / Inspect)<br/>**Default · Zero Setup** | 🔑 Mode 2: Developer Mode (OAuth2 / Bot)<br/>**Optional · Deep Analysis** |
-|---|---|---|
-| **Who is it for?** | **Everyone / Non-coders** | Community Architects, Admins & Developers |
-| **Setup Required** | **None.** Just load the extension and open Discord. | Paste Bot Token or OAuth credentials directly in Extension Settings ⚙️. |
-| **Do I need to edit code?** | ❌ No | ❌ No (configured directly in the UI). |
-| **Server Tree & Categories** | ✅ **Yes** — extracted directly from sidebar. | ✅ **Yes** — fetched via official Discord API. |
-| **Large Server Support** | ✅ **Yes** — automated virtual scroller sweep. | ✅ **Complete** — all channels fetched in 1 request. |
-| **Live Auto-Reload** | ✅ **Yes** — tracks name changes & server switching. | ✅ **Yes** — fetches fresh data on demand. |
-| **AI Prompt Export** | ✅ **Yes** — 1-click export for ChatGPT/Claude/Gemini. | ✅ **Yes** — with complete role & permission matrix. |
-| **Channel Topics & Welcome Text** | ✅ **Yes** — reads what is visible on screen. | ✅ **Yes** — read from Discord channel objects. |
-| **Server Rules & Templates** | ✅ **Yes** — reads from `#rules` or `#welcome`. | ✅ **Yes** — read from channel history / system channels. |
-| **Visible Roles** | ⚠️ Partial (roles visible on member cards). | ✅ **Complete** — all server roles, colors, and order. |
-| **Exact Permission Matrix** | ⚠️ Basic (what your account can see). | ✅ **Exact Bitfield Permissions** — full allow/deny rules per role. |
-| **Need Discord Open in Tab?** | Yes, you must have Discord open in a browser tab. | No, can fetch data headlessly in the background. |
+MapMyServer operates **100% offline and client-side**:
+- **Zero Telemetry**: No tracking pixels, analytics cookies, or external surveillance.
+- **No Mandatory Backend**: Operates standalone in Chrome using `chrome.storage.local`.
+- **Bring Your Own Key (BYOK)**: Connect your own preferred AI model directly without monthly SaaS subscriptions.
 
 ---
 
-## 🚀 Option A: Quick Setup for Non-Coders (Browser Mode — No Coding)
+## 🚀 Key Capabilities
 
-You do **not** need to touch any terminal, write code, or create a Discord Bot.
+### 1. Non-Intrusive Discord Architecture Scanner
+- **Virtual Scroller Sweep**: Automatically scans virtualized Discord sidebars to discover channels in servers with 50+ categories and hundreds of channels.
+- **Real-Time Tab Synchronization**: Seamlessly updates when you switch Discord servers or edit channels.
+- **Rich Channel Classification**: Categorizes channels into 12 purpose taxonomies (Onboarding, Announcements, Discussions, Governance, Support, etc.).
+- **Live Channel Metadata**: Extracts topics, slowmode limits, and instructions where accessible.
+
+### 2. Dual Architecture Capture Modes
+- **Mode A: Full Administrator Capture (Server Owner / Admin)**  
+  Captures complete server taxonomy, categories, channels, role hierarchy, color ordering, bitfield permission flags, and channel-level permission overwrites.
+- **Mode B: Accessible Architecture Capture (Regular Server Member)**  
+  Strictly respects Discord user access boundaries. Gathers only visibly accessible categories and channels. Never bypasses permissions or scrapes private channels, and automatically attaches a transparent partial-capture disclosure notice.
+
+### 3. Permission Intelligence Engine
+- Full Discord bitfield calculation (`VIEW_CHANNEL`, `SEND_MESSAGES`, `MANAGE_CHANNELS`, etc.).
+- Resolves `@everyone` base permissions, role combinations, member overwrites, and `ADMINISTRATOR` bypass flags.
+- Validates category permission inheritance and synchronization status.
+- 5-tier channel accessibility classification (`broadly-accessible`, `role-restricted`, `member-restricted`, `inaccessible`, `unknown`).
+
+### 4. Security Audit Center & Server Health Score
+- **100-Point Security Health Score**: Deterministic health score evaluating server organization, permission posture, and administrative hygiene.
+- **Severity-Tiered Audit Findings**: Flags public `@everyone` mentions, administrative role sprawl, unlinked categories, and excessive channel overwrites.
+- **Remediation Guides**: Actionable step-by-step guidance to remediate vulnerabilities before they are exploited.
+
+### 5. AI Server Architect (Multi-Provider BYOK)
+- Direct Bring Your Own Key integration with:
+  - **OpenAI**: GPT-4o, GPT-4o-mini
+  - **Anthropic**: Claude 3.5 Sonnet, Claude 3.5 Haiku
+  - **Google Gemini**: Gemini 2.0 Flash, Gemini 1.5 Pro
+  - **OpenRouter**: Access to hundreds of open-source models
+  - **Custom / Local**: Self-hosted Ollama (`http://localhost:11434`) and OpenAI-compatible endpoints
+- **What-If Architecture Sandbox**: Propose structural changes and visualize additions, modifications, and removals before executing.
+- **Documentation Generator**: Auto-generates Markdown, HTML, JSON, and CSV guides for developers, moderators, or onboarding members.
+- **Prompt Injection Defense**: Security enclosure boundaries sanitize server text to prevent prompt injection attacks.
+
+### 6. Smart Server Cloner & Automation Recreation
+- **8-Step Guided Workflow**: Source Selection ➔ Capture Review ➔ Component Selection ➔ AI Customization ➔ Destination Strategy ➔ Destructive Review ➔ Code Generation.
+- **Selective Component Cloning**: Clone the entire server, selected categories, or granular channels with on-the-fly renaming and topic toggles.
+- **Selective Merge Strategy**: Merges into existing destination servers while automatically skipping duplicate channels without overwriting.
+- **Ready-to-Run Automation Scripts**:
+  - `discord.js` v14 script with `--dry-run` flag, idempotency, and rate-limit handling.
+  - `discord.py` v2 script with async concurrency.
+  - Reusable JSON Template and step-by-step manual Markdown checklist.
+  - All scripts safely read credentials via `process.env.DISCORD_BOT_TOKEN`.
+
+### 7. Curated Templates & Version History
+- **9 Production Templates**: Pre-configured blueprints for Developer Communities, Open Source Projects, Gaming Guilds, Creator Spaces, Tech Startups, and Education.
+- **Architecture Snapshots**: Capture manual and automatic point-in-time snapshots to track changes over time.
+- **Side-by-Side Comparison**: Visually diff two servers or snapshots to identify missing, added, or modified channels.
+
+### 8. Local Backup, Restore & Offline Privacy
+- **Zero-Trace Wipe**: Permanently purge all stored server blueprints from local browser storage in one click.
+- **Complete JSON Backup**: Export and restore all saved servers, snapshots, and custom templates with schema validation.
+
+---
+
+## 📦 Installation & Getting Started
+
+You do **not** need to install Node.js or run terminal commands to use the pre-built extension.
 
 ### Step 1: Open Chrome Extensions
-1. Open Google Chrome.
-2. In the address bar, type `chrome://extensions` and press **Enter**.  
-   *(Or click the 3 vertical dots at the top right of Chrome ➔ **Extensions** ➔ **Manage Extensions**).*
+1. In Google Chrome, navigate to `chrome://extensions/`.
+2. In the top-right corner, toggle **Developer mode** to **ON**.
 
-### Step 2: Turn on Developer Mode
-Look at the **top-right corner** of the Extensions page and toggle the switch labeled **Developer mode** to **ON**.
-
-```
-                           [ Developer mode  (●) ON ]
-```
-
-### Step 3: Click "Load unpacked"
-Click the button labeled **Load unpacked** in the top-left corner.
-
-```
-[ Load unpacked ]  [ Pack extension ]  [ Update ]
-```
-
-### Step 4: Select the `extension/dist` Folder
-A file browser window will pop up:
-1. Navigate to the downloaded `MapMyServer` project folder.
-2. Open the **`extension`** folder.
-3. Select the **`dist`** folder and click **Select Folder**:
+### Step 2: Load Unpacked Extension
+1. Click the **Load unpacked** button in the top-left corner.
+2. Select the **`extension/dist`** folder inside the MapMyServer repository:
    ```
-   MapMyServer /
-   └── extension /
-       └── dist  <-- 🎯 SELECT THIS FOLDER
+   MapMyServer/
+   └── extension/
+       └── dist   <-- SELECT THIS DIRECTORY
    ```
 
-> 💡 **Why `extension/dist`?**  
-> Chrome requires a file named `manifest.json` to recognize and run the extension. The ready-to-run compiled files and `manifest.json` are inside `extension/dist`.
+### Step 3: Open Discord and Start Analyzing
+1. Open Discord in your browser: [https://discord.com/channels/@me](https://discord.com/channels/@me).
+2. Click the puzzle icon 🧩 in Chrome's toolbar and pin **MapMyServer**.
+3. Open the Chrome Side Panel (or click the MapMyServer toolbar icon).
+4. Navigate to any Discord server and click **Analyze Current Server**!
+
+> 💡 *Want a quick test drive without opening Discord?* Click **Load Rich Mock Community** on the welcome screen to explore all tree, graph, audit, and cloning tools with GDG Community sample data.
 
 ---
 
-### Step 5: Start Mapping Discord!
-1. Pin **MapMyServer** to your Chrome toolbar (click the puzzle icon 🧩 in the top-right corner of Chrome, then click the pin 📌 next to MapMyServer).
-2. Open Discord in your browser: [https://discord.com/channels/@me](https://discord.com/channels/@me) and navigate to any server you want to analyze.
-3. Click the **MapMyServer icon** in your toolbar and click **Open Dashboard** (or open the Chrome Side Panel).
-4. Click **"🔍 Analyze Current Server"**!
-5. *Want a demo?* You can explore all features anytime by clicking **"🧪 Load Rich Mock Community"**.
+## 🔑 AI Provider Configuration (BYOK)
+
+To enable AI features:
+1. Open the MapMyServer side panel.
+2. Click the **⚙️ Settings icon** in the top header.
+3. Click **Configure AI Providers & Keys**.
+4. Select your preferred provider (OpenAI, Anthropic, Gemini, OpenRouter, or Custom Ollama).
+5. Paste your API key and click **Test Connection** to verify.
+6. Click **Save Configuration**.
+
+Your API keys are stored strictly in `chrome.storage.local` on your computer and are never transmitted to MapMyServer maintainers or any third party.
 
 ---
 
-## 🔑 Option B: Developer Mode (OAuth2 / Bot API — Direct UI Configuration)
+## 🛠️ Recreating a Server via Bot Scripts
 
-If you want **deep permission auditing** (full role hierarchies and exact allow/deny matrices) on servers you own or manage:
+When recreating a server structure using the generated automation scripts:
 
-1. Open the MapMyServer Side Panel.
-2. Click the **⚙️ Settings icon** in the top-right header.
-3. Enter your credentials directly into the UI:
-   - **Backend API Endpoint:** `http://localhost:3000` (or your deployed backend URL)
-   - **Discord Session / JWT Token:** Paste your authenticated token
-   - **Custom Bot Token:** Paste your Discord Bot Token (`Bot OTU4...`)
-4. Click **💾 Save Settings**.
-5. All credentials are saved directly in your browser's private extension storage — **zero code editing required**.
+1. Create a Discord Bot application in the [Discord Developer Portal](https://discord.com/developers/applications).
+2. Invite your bot to your target server with **Administrator** or **Manage Channels & Manage Roles** permissions.
+3. Set your bot token in your environment:
+   ```bash
+   # Linux / macOS
+   export DISCORD_BOT_TOKEN="your_bot_token_here"
 
----
+   # Windows PowerShell
+   $env:DISCORD_BOT_TOKEN="your_bot_token_here"
+   ```
+4. Run the script:
+   ```bash
+   # Dry-run test (simulates without creating channels)
+   node recreate_server.js --guild YOUR_GUILD_ID --dry-run
 
-## Security Boundary
-
-> **This extension only collects data the current user/application is authorized to access.**
-
-- ✅ Reads page-visible DOM elements on `discord.com`
-- ✅ Uses official Discord OAuth2 API for authorized data collection
-- ✅ Tags all data with provenance metadata (`page-visible`, `discord-api`, etc.)
-- ❌ Does **NOT** extract authentication tokens or cookies
-- ❌ Does **NOT** use self-bot patterns or unauthorized API calls
-- ❌ Does **NOT** intercept network requests or scrape member lists
+   # Real execution
+   node recreate_server.js --guild YOUR_GUILD_ID
+   ```
 
 ---
 
-## Features by Phase
+## 🔒 Security & Privacy Notice
 
-### ✅ Phase 1 — Chrome Extension & Rich Data Model
-
-| Feature | Status |
-|---|---|
-| Chrome Extension (Manifest V3, Side Panel, Popup) | ✅ |
-| React 19 + TypeScript + Vite + CRXJS | ✅ |
-| Discord-themed Tailwind CSS design system | ✅ |
-| `ServerBlueprint` data model with full type safety | ✅ |
-| Categories, Channels (text/voice/stage/forum/announcement/media) | ✅ |
-| Threads with `messageCount`, `locked`, `autoArchiveDuration` | ✅ |
-| Roles with `managed`, `mentionable`, `hoist`, `permissions` | ✅ |
-| **Channel Purpose Classification** (12-purpose taxonomy) | ✅ |
-| **Source Tracking** (`ExtractedContent` with full provenance) | ✅ |
-| **Structured Channel Content** (instructions, templates, rules, pinned messages) | ✅ |
-| **Server Rules** as a first-class feature | ✅ |
-| Interactive Tree View with purpose badges & content indicators | ✅ |
-| **Channel Detail Slide-Over Panel** with provenance inspector | ✅ |
-| Statistics Dashboard (type distribution, purpose coverage, content metrics) | ✅ |
-| Change History & Snapshot management | ✅ |
-| Rich Mock Data (GDG Community model with templates, rules, instructions) | ✅ |
-| DOM-based server detection & structure parsing | ✅ |
-
-### ✅ Phase 2 — Graph UI, Backend & In-UI Settings
-
-| Feature | Status |
-|---|---|
-| **Monorepo** (NPM workspaces: `extension`, `backend`, `shared`) | ✅ |
-| **Shared Types** (`@mapmyserver/shared` package) | ✅ |
-| **React Flow Graph UI** (Dagre auto-layout, interactive pan/zoom) | ✅ |
-| **Node.js/Express Backend** with TypeScript | ✅ |
-| **Discord OAuth2** (`/api/auth/login`, `/api/auth/callback`) | ✅ |
-| **In-UI Settings Panel** (save Bot tokens & endpoints without editing code) | ✅ |
-| **JWT Session Management** | ✅ |
-| **Discord API Client** (Guilds, Channels, Roles) | ✅ |
-| **Normalizer** (Discord API → `ServerBlueprint` with purpose heuristics) | ✅ |
-| **Server List UI** (Login with Discord → select authorized servers) | ✅ |
-| Backend `/api/servers` and `/api/servers/:id/blueprint` endpoints | ✅ |
-
-### 🔲 Phase 3 — Search, Filters, Snapshots & Change Detection
-
-| Feature | Status |
-|---|---|
-| Advanced search (by purpose, content, topic) | 🔲 |
-| Export (JSON / CSV / PNG) | 🔲 |
-| Snapshot diffing & change detection | 🔲 |
-| Server comparison (side-by-side) | 🔲 |
-
-### 🔲 Phase 4 — AI-Powered Analysis
-
-| Feature | Status |
-|---|---|
-| AI-assisted channel purpose classification | 🔲 |
-| Server architecture analysis & recommendations | 🔲 |
-| Professional community pattern detection | 🔲 |
-| Blueprint recommendations for server optimization | 🔲 |
+MapMyServer strictly respects Discord's Terms of Service and user security:
+- **No Self-Bots**: MapMyServer does not use user tokens or self-bot automation.
+- **Respects Permissions**: Restricted channels that your account cannot see are never scraped or accessed.
+- **Client-Side Only**: All data remains on your machine.
+- For complete details, see [SECURITY.md](SECURITY.md).
 
 ---
 
-## Tech Stack
+## 💻 Monorepo Development & Testing
 
-| Layer | Technology |
-|---|---|
-| **Extension** | React 19, TypeScript, Vite, CRXJS, Tailwind CSS v3, Zustand v5 |
-| **Graph UI** | @xyflow/react, dagre (auto-layout) |
-| **Backend** | Node.js, Express, Axios, JWT, dotenv |
-| **Shared Types** | Pure TypeScript package (`@mapmyserver/shared`) |
-| **Browser** | Chrome Manifest V3, Side Panel API, chrome.storage.local |
-
----
-
-## Project Structure
-
-```
-MapMyServer/
-├── extension/                     # Chrome Extension (React + Vite)
-│   ├── manifest.json              # Chrome Manifest V3
-│   ├── sidepanel.html             # Side Panel entry
-│   ├── popup.html                 # Popup entry
-│   ├── public/icons/              # Extension icons
-│   └── src/
-│       ├── background/            # Service worker
-│       ├── content/               # Discord page observer
-│       │   └── parsers/           # DOM parsers
-│       ├── services/              # Blueprint builder, statistics, mock data
-│       ├── store/                 # Zustand state (server + UI)
-│       ├── types/                 # Message types
-│       ├── styles/                # Tailwind + global CSS
-│       ├── sidepanel/
-│       │   └── components/        # All dashboard components
-│       │       ├── ServerOverview  # Overview + server rules card
-│       │       ├── ServerTree      # Collapsible tree with purpose badges
-│       │       ├── ServerGraph     # React Flow node graph
-│       │       ├── ChannelDetail   # Slide-over with provenance inspector
-│       │       ├── SettingsModal   # In-UI API & Token configuration
-│       │       ├── Statistics      # Charts & metrics
-│       │       ├── ChangeHistory   # Snapshots & diffs
-│       │       ├── ServerList      # Authorized servers (OAuth2)
-│       │       └── ...
-│       └── popup/                 # Quick overview popup
-│
-├── backend/                       # Node.js Express API
-│   └── src/
-│       ├── auth/discord.ts        # OAuth2 login & callback
-│       ├── services/
-│       │   ├── discordApi.ts      # Discord API client
-│       │   └── normalizer.ts      # Discord → ServerBlueprint
-│       ├── routes/api.ts          # /api/servers endpoints
-│       └── server.ts              # Express entry point
-│
-├── shared/                        # Shared TypeScript types
-│   └── src/index.ts               # ServerBlueprint, Channel, ExtractedContent, etc.
-│
-├── logo.jpg                       # Project logo
-└── package.json                   # NPM workspaces root
-```
-
----
-
-## 🛠️ Developer Setup & Building from Source
-
-If you are contributing or modifying the source code:
-
-### Prerequisites
-- Node.js 18+
-- npm 9+
-
-### 1. Install Dependencies
 ```bash
+# Clone the repository
+git clone https://github.com/SudiptaSanki/MapMyServer.git
+cd MapMyServer
+
+# Install dependencies
 npm install
-```
 
-### 2. Build All Workspaces
-```bash
-npm run build --workspaces
-```
+# Run all 63 unit and integration tests
+npm test
 
-### 3. (Optional) Run Local Backend
-```bash
-cd backend
-npm run dev
+# Build all packages (shared, extension, backend)
+npm run build
 ```
 
 ---
 
-## Data Model Overview
+## 📄 License
 
-The core `ServerBlueprint` schema captures the full architecture of a Discord community:
-
-```
-ServerBlueprint
-├── server          → Name, description, features, boost level, member count
-├── categories[]    → Ordered category list with channel IDs
-├── channels[]      → Name, type, topic, description, content, purpose, permissions
-│   ├── content     → welcomeMessage, instructions[], rules[], template, pinnedMessages[]
-│   └── purpose     → ONBOARDING | GOVERNANCE | COMMUNITY | SUPPORT | ... (12 types)
-├── threads[]       → Name, archived, locked, messageCount
-├── roles[]         → Name, color, position, managed, hoist, mentionable
-├── rules           → First-class server rules with source provenance
-├── statistics      → Type counts, purpose distribution, content coverage
-├── collectedAt     → Timestamp
-└── version         → Schema version (currently 2)
-```
-
-Every piece of extracted content includes full **source tracking**:
-
-```typescript
-interface ExtractedContent {
-  text: string;
-  source: {
-    type: "channel-topic" | "message" | "pinned-message" | "welcome-message" | ...;
-    channelId: string;
-    messageId?: string;
-    authorName?: string;
-    collectedAt: string;
-    visibility: { source: "discord-api" | "page-visible"; accessibleToUser: boolean };
-  };
-}
-```
-
----
-
-## License
-
-MIT
-
-<!-- autobot:start -->
-<!-- s:2b011256 t:2026-11-05T16:52:58.741Z a:debugged issue b:5730 -->
-<!-- autobot:end -->
+MapMyServer is open-source software licensed under the [MIT License](LICENSE).

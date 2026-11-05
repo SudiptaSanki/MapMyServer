@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useServerStore } from "@/store/serverStore";
 import { useUIStore } from "@/store/uiStore";
 import { generateAIPrompt } from "@/services/aiPromptGenerator";
-import { runSecurityAudit } from "@mapmyserver/shared";
+import { runSecurityAudit, detectCaptureMode } from "@mapmyserver/shared";
 import AnalysisProgress from "./AnalysisProgress";
 import {
   Folder,
@@ -49,6 +49,7 @@ export default function ServerOverview() {
   const [copiedTree, setCopiedTree] = useState(false);
 
   const auditReport = useMemo(() => (blueprint ? runSecurityAudit(blueprint) : null), [blueprint]);
+  const captureModeInfo = useMemo(() => (blueprint ? detectCaptureMode(blueprint) : null), [blueprint]);
 
   const handleCopyAIPrompt = async () => {
     if (!blueprint) return;
@@ -130,6 +131,53 @@ export default function ServerOverview() {
           </div>
         )}
       </div>
+
+      {/* Architecture Scope & Capture Mode Banner (Section 3) */}
+      {blueprint && captureModeInfo && (
+        <div
+          className={`glass-card p-3 border space-y-2 ${
+            captureModeInfo.mode === "full-admin"
+              ? "border-emerald-500/30 bg-emerald-500/5"
+              : "border-amber-500/30 bg-amber-500/5"
+          }`}
+        >
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-1.5 font-bold">
+              {captureModeInfo.mode === "full-admin" ? (
+                <>
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  <span className="text-emerald-300">Full Administrator Architecture Capture</span>
+                </>
+              ) : (
+                <>
+                  <ShieldAlert className="w-4 h-4 text-amber-400" />
+                  <span className="text-amber-300">Accessible Member Architecture Capture</span>
+                </>
+              )}
+            </div>
+            <span
+              className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase ${
+                captureModeInfo.mode === "full-admin"
+                  ? "bg-emerald-500/20 text-emerald-300"
+                  : "bg-amber-500/20 text-amber-300"
+              }`}
+            >
+              {captureModeInfo.mode === "full-admin" ? "Mode A: Admin" : "Mode B: Member"}
+            </span>
+          </div>
+
+          <p className="text-[11px] text-text-secondary leading-relaxed">
+            {captureModeInfo.description}
+          </p>
+
+          {captureModeInfo.notice && (
+            <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-300 leading-snug flex items-start gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+              <span>{captureModeInfo.notice}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Scan Quality & Reliability Report (Part 7) */}
       {blueprint && scan && (

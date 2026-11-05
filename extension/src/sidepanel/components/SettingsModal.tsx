@@ -8,7 +8,7 @@
  *  - AI Credentials Configuration Link
  * ───────────────────────────────────────────── */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useUIStore } from "@/store/uiStore";
 import { getStorageUsage, listServers } from "@/services/storageService";
 import AISettingsModal from "./AISettingsModal";
@@ -21,6 +21,7 @@ import {
   X,
   Check,
   Download,
+  Upload,
   Key,
 } from "lucide-react";
 
@@ -37,6 +38,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -64,6 +66,30 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     URL.revokeObjectURL(url);
     setSuccessMessage("All local extension data exported successfully.");
     setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
+  const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if (typeof parsed !== "object" || parsed === null) {
+        throw new Error("Invalid backup format: root must be a JSON object.");
+      }
+      const dataToStore = parsed.data && typeof parsed.data === "object" ? parsed.data : parsed;
+      await chrome.storage.local.set(dataToStore);
+      const usage = await getStorageUsage();
+      setStorageBytes(usage.bytesInUse);
+      const list = await listServers();
+      setSavedServersCount(list.length);
+      setSuccessMessage(`Backup restored successfully (${Object.keys(dataToStore).length} records imported).`);
+      setTimeout(() => setSuccessMessage(null), 3500);
+    } catch (err: any) {
+      alert(`Failed to restore backup: ${err.message || err}`);
+    } finally {
+      if (e.target) e.target.value = "";
+    }
   };
 
   const handleClearAllData = async () => {
@@ -187,27 +213,47 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-1">
+              <div className="grid grid-cols-3 gap-1.5 pt-1">
                 <button
                   type="button"
                   onClick={handleExportAllData}
-                  className="btn-secondary flex-1 py-1.5 text-xs flex items-center justify-center gap-1.5"
+                  className="btn-secondary py-1.5 px-2 text-[11px] flex items-center justify-center gap-1"
+                  title="Export all saved blueprints and settings to a JSON backup file"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>Export Backup</span>
+                  <span>Export</span>
                 </button>
 
                 <button
                   type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="btn-secondary py-1.5 px-2 text-[11px] flex items-center justify-center gap-1"
+                  title="Restore blueprints and settings from a JSON backup file"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Restore</span>
+                </button>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={handleImportBackup}
+                  className="hidden"
+                />
+
+                <button
+                  type="button"
                   onClick={handleClearAllData}
-                  className={`px-3 py-1.5 rounded text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ${
+                  className={`py-1.5 px-2 rounded text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors ${
                     confirmClear
                       ? "bg-rose-600 hover:bg-rose-500 text-white animate-pulse"
                       : "bg-surface-800 hover:bg-rose-500/20 text-text-muted hover:text-rose-400 border border-surface-500/30"
                   }`}
+                  title="Wipe all local blueprints and cached data"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span>{confirmClear ? "Confirm Wipe?" : "Wipe Data"}</span>
+                  <span>{confirmClear ? "Confirm?" : "Wipe"}</span>
                 </button>
               </div>
 

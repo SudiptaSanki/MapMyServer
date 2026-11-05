@@ -346,8 +346,16 @@ function isCategoryElement(el: HTMLElement): boolean {
   const ariaExpanded = el.getAttribute("aria-expanded");
   const text = el.textContent?.trim() ?? "";
   const className = typeof el.className === "string" ? el.className : "";
+  const testId = el.getAttribute("data-testid") ?? "";
+  const dataListItemId = el.getAttribute("data-list-item-id") ?? "";
 
   if (ariaLabel.toLowerCase().includes("category")) return true;
+  if (testId.toLowerCase().includes("category")) return true;
+  if (dataListItemId.toLowerCase().startsWith("category-") || dataListItemId.toLowerCase().includes("channels___")) {
+    if (el.tagName === "H3" || el.querySelector("h3") || el.getAttribute("role") === "button") {
+      return true;
+    }
+  }
 
   if (
     (ariaExpanded !== null ||
@@ -489,10 +497,12 @@ function inferChannelTypeFromElement(el: Element): ChannelType {
 // ── Utility Helpers ────────────────────────────
 
 function cleanChannelName(name: string): string {
-  return name
+  if (!name) return "";
+  const cleaned = name
     .replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}#🔊🎤📋📢🖼️💬┃・—–-]+\s*/gu, "")
     .replace(/\s*\(.*?\)\s*$/, "")
     .trim();
+  return cleaned.length > 0 ? cleaned : name.trim();
 }
 
 function isUpperCaseText(text: string): boolean {
