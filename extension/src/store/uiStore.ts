@@ -12,6 +12,7 @@ import { create } from "zustand";
 export type SidePanelTab =
   | "overview"
   | "tree"
+  | "compare"
   | "graph"
   | "roles"
   | "audit"
@@ -21,6 +22,8 @@ export type SidePanelTab =
   | "history"
   | "export"
   | "stats";
+
+export type ExperienceMode = "beginner" | "advanced";
 
 // ── Filter State ───────────────────────────────
 
@@ -45,6 +48,10 @@ interface UIState {
   // Navigation
   activeTab: SidePanelTab;
   setActiveTab: (tab: SidePanelTab) => void;
+
+  // Experience Mode (Section 14: Beginner vs Advanced)
+  experienceMode: ExperienceMode;
+  setExperienceMode: (mode: ExperienceMode) => void;
 
   // Selected Channel for Detail Panel
   selectedChannelId: string | null;
@@ -94,6 +101,10 @@ export const useUIStore = create<UIState>((set) => ({
   // Navigation
   activeTab: "overview",
   setActiveTab: (tab) => set({ activeTab: tab }),
+
+  // Experience Mode
+  experienceMode: "advanced",
+  setExperienceMode: (mode) => set({ experienceMode: mode }),
 
   // Selected Channel
   selectedChannelId: null,

@@ -1,109 +1,119 @@
-import { useEffect } from "react";
+/* ─────────────────────────────────────────────
+ *  Saved Servers Directory
+ *
+ *  Displays all locally saved and previously scanned
+ *  Discord server blueprints from local extension storage.
+ * ───────────────────────────────────────────── */
+
+import { useEffect, useState } from "react";
 import { useServerStore } from "@/store/serverStore";
-import { Lock } from "lucide-react";
+import { listServers, loadBlueprint, deleteBlueprint } from "@/services/storageService";
+import { Server, Trash2, ArrowRight, HardDrive } from "lucide-react";
+
+interface SavedServerEntry {
+  id: string;
+  name: string;
+  icon?: string;
+  lastAnalyzed: string;
+}
 
 export default function ServerList() {
-  const { 
-    backendToken, 
-    authorizedServers, 
-    isLoadingServers, 
-    fetchAuthorizedServers,
-    fetchBlueprintFromApi,
-    setBackendToken,
-    setCurrentServer,
-  } = useServerStore();
+  const { setBlueprint, setCurrentServer } = useServerStore();
+  const [servers, setServers] = useState<SavedServerEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadAll = async () => {
+    setIsLoading(true);
+    const list = await listServers();
+    setServers(list);
+    setIsLoading(false);
+  };
 
   useEffect(() => {
-    if (backendToken && authorizedServers.length === 0) {
-      fetchAuthorizedServers();
-    }
-  }, [backendToken, authorizedServers.length, fetchAuthorizedServers]);
+    loadAll();
+  }, []);
 
-  const handleLogin = async () => {
-    try {
-      const res = await fetch("http://localhost:3000/api/auth/login");
-      const { url } = await res.json();
-      
-      // Open Discord OAuth2 in a new window
-      const authWindow = window.open(url, "Discord Auth", "width=500,height=800");
-
-      // Listen for messages from the popup (we'd normally use chrome.identity here, but this is a web app fallback)
-      window.addEventListener("message", (event) => {
-        if (event.data?.type === "DISCORD_AUTH_SUCCESS") {
-          setBackendToken(event.data.token);
-          authWindow?.close();
-        }
-      });
-    } catch (e) {
-      console.error("Failed to login", e);
+  const handleSelectServer = async (server: SavedServerEntry) => {
+    const bp = await loadBlueprint(server.id);
+    if (bp) {
+      setCurrentServer(server.id, server.name, true);
+      setBlueprint(bp);
     }
   };
 
-  const handleServerClick = (server: any) => {
-    setCurrentServer(server.id, server.name, true);
-    fetchBlueprintFromApi(server.id);
+  const handleDelete = async (id: string, name: string) => {
+    if (confirm(`Remove "${name}" from saved servers?`)) {
+      await deleteBlueprint(id);
+      await loadAll();
+    }
   };
 
-  if (!backendToken) {
+  if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center p-6 bg-surface-900 border border-surface-500 rounded-lg m-4">
-        <div className="w-12 h-12 mb-3 rounded-xl bg-surface-800 flex items-center justify-center text-discord-blurple">
-          <Lock className="w-6 h-6" />
-        </div>
-        <h3 className="text-base font-bold text-text-primary mb-1">Connect Discord</h3>
-        <p className="text-sm text-text-muted text-center mb-6">
-          Link your Discord account to map servers you are a member of.
+      <div className="flex justify-center p-8">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-discord-blurple"></div>
+      </div>
+    );
+  }
+
+  if (servers.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-6 glass-card m-3 text-center space-y-2">
+        <HardDrive className="w-8 h-8 text-discord-blurple/60" />
+        <h3 className="text-xs font-bold text-text-primary">No Saved Servers</h3>
+        <p className="text-[11px] text-text-muted">
+          Scanned Discord servers will automatically appear here for offline inspection and comparison.
         </p>
-        <button
-          onClick={handleLogin}
-          className="px-4 py-2 bg-brand-500 hover:bg-brand-400 text-white font-semibold rounded transition-colors w-full"
-        >
-          Login with Discord
-        </button>
       </div>
     );
   }
 
   return (
-    <div className="p-4">
-      <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider mb-4">
-        My Servers
+    <div className="p-3 space-y-2.5">
+      <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+        Scanned Servers ({servers.length})
       </h3>
-      
-      {isLoadingServers ? (
-        <div className="flex justify-center p-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500"></div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-2">
-          {authorizedServers.map((server) => (
+
+      <div className="space-y-1.5">
+        {servers.map((s) => (
+          <div
+            key={s.id}
+            className="glass-card p-2.5 border border-surface-500/20 hover:border-surface-500/40 flex items-center justify-between gap-2"
+          >
             <button
-              key={server.id}
-              onClick={() => handleServerClick(server)}
-              className="flex items-center gap-3 p-3 bg-surface-900 hover:bg-surface-700 border border-surface-500 hover:border-brand-500 rounded-lg transition-colors text-left"
+              onClick={() => handleSelectServer(s)}
+              className="flex items-center gap-2.5 flex-1 min-w-0 text-left hover:text-discord-blurple transition-colors"
             >
-              {server.icon ? (
-                <img
-                  src={`https://cdn.discordapp.com/icons/${server.id}/${server.icon}.png`}
-                  alt={server.name}
-                  className="w-10 h-10 rounded-full"
-                />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-surface-500 flex items-center justify-center font-bold text-text-primary">
-                  {server.name.charAt(0)}
+              <div className="w-7 h-7 rounded-full bg-discord-blurple/20 flex items-center justify-center text-discord-blurple flex-shrink-0">
+                <Server className="w-3.5 h-3.5" />
+              </div>
+              <div className="truncate">
+                <div className="text-xs font-semibold text-text-primary truncate">{s.name}</div>
+                <div className="text-[10px] text-text-muted font-mono">
+                  {new Date(s.lastAnalyzed).toLocaleDateString()}
                 </div>
-              )}
-              <span className="font-semibold text-text-primary truncate">{server.name}</span>
+              </div>
             </button>
-          ))}
-          
-          {authorizedServers.length === 0 && !isLoadingServers && (
-            <div className="text-center p-6 text-text-muted text-sm">
-              No servers found. Make sure the bot is invited to your servers.
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => handleSelectServer(s)}
+                className="p-1 rounded hover:bg-surface-700 text-text-muted hover:text-white"
+                title="Open server blueprint"
+              >
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => handleDelete(s.id, s.name)}
+                className="p-1 rounded hover:bg-rose-500/20 text-text-muted hover:text-rose-400"
+                title="Delete saved blueprint"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

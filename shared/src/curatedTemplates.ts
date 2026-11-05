@@ -464,3 +464,4 @@ export const CURATED_TEMPLATES: ServerTemplate[] = [
     updatedAt: 1700000000000,
   },
 ];
+

@@ -30,6 +30,7 @@ import {
   ShieldAlert,
   Terminal,
   Folder,
+  CopyPlus,
 } from "lucide-react";
 
 export default function TemplateGallery() {
@@ -135,6 +136,19 @@ export default function TemplateGallery() {
       await TemplateService.deleteCustomTemplate(t.id);
       await loadAll();
     }
+  };
+
+  const handleDuplicate = async (t: ServerTemplate) => {
+    const duplicated: ServerTemplate = {
+      ...JSON.parse(JSON.stringify(t)),
+      id: `custom-${Date.now()}`,
+      name: `${t.name} (Copy)`,
+      author: "Custom (Local)",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    await TemplateService.saveCustomTemplate(duplicated);
+    await loadAll();
   };
 
   return (
@@ -304,7 +318,10 @@ export default function TemplateGallery() {
                   {template.categories.map((cat, i) => (
                     <div key={i} className="p-2 rounded bg-surface-900/80 border border-surface-500/20 space-y-1">
                       <div className="font-bold text-[11px] text-text-primary flex items-center justify-between">
-                        <span>📁 {cat.name}</span>
+                        <span className="flex items-center gap-1">
+                          <Folder className="w-3 h-3 text-discord-blurple" />
+                          <span>{cat.name}</span>
+                        </span>
                         {cat.isStaffOnly && (
                           <span className="text-[9px] text-amber-400 font-mono uppercase bg-amber-500/10 px-1 rounded">
                             Staff Only
@@ -370,6 +387,14 @@ export default function TemplateGallery() {
                     title="Download template .json"
                   >
                     <Download className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    onClick={() => handleDuplicate(template)}
+                    className="p-1.5 rounded hover:bg-surface-700 text-text-muted hover:text-text-primary"
+                    title="Duplicate template"
+                  >
+                    <CopyPlus className="w-3.5 h-3.5" />
                   </button>
 
                   <button

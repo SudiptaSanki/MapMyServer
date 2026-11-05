@@ -285,7 +285,7 @@ function auditChannelVisibility(
   blueprint: ServerBlueprint,
   findings: SecurityFinding[],
   detectedAt: number,
-  isPartialScan: boolean
+  _isPartialScan: boolean
 ) {
   for (const channel of blueprint.channels) {
     if (channel.type === "category") continue;
@@ -358,7 +358,7 @@ function auditStaffChannels(
   blueprint: ServerBlueprint,
   findings: SecurityFinding[],
   detectedAt: number,
-  isPartialScan: boolean
+  _isPartialScan: boolean
 ) {
   for (const channel of blueprint.channels) {
     if (channel.type === "category") continue;
@@ -747,7 +747,7 @@ function auditVoiceChannels(
   blueprint: ServerBlueprint,
   findings: SecurityFinding[],
   detectedAt: number,
-  isPartialScan: boolean
+  _isPartialScan: boolean
 ) {
   for (const channel of blueprint.channels) {
     // Check stage channels for unrestricted SPEAK

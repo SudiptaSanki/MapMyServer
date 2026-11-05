@@ -2,7 +2,15 @@
  *  Discord Server Architecture — Template Models & Validation
  * ───────────────────────────────────────────── */
 
-import type { ChannelType, ChannelPurpose, VisibilityClassification, ServerBlueprint } from "./index";
+import type {
+  ChannelType,
+  ChannelPurpose,
+  VisibilityClassification,
+  ServerBlueprint,
+  Category,
+  Channel,
+  Role,
+} from "./index";
 
 export type TemplateAudience =
   | "community"
@@ -195,6 +203,180 @@ export function blueprintToTemplate(
   };
 }
 
+// ── Template to Blueprint Converter ────────────
+
+export function templateToBlueprint(template: ServerTemplate): ServerBlueprint {
+  const categories: Category[] = template.categories.map((c, i) => ({
+    id: `cat-${i}`,
+    name: c.name,
+    position: c.position ?? i,
+    channelIds: [],
+    visibility: {
+      source: "user-provided",
+      accessibleToUser: !c.isStaffOnly,
+      observedAt: new Date().toISOString(),
+    },
+  }));
+
+  const categoryMap = new Map<string, string>();
+  for (const c of categories) {
+    categoryMap.set(c.name.trim().toLowerCase(), c.id);
+  }
+
+  const channels: Channel[] = [];
+  let channelCounter = 0;
+
+  for (const cat of template.categories) {
+    const parentId = categoryMap.get(cat.name.trim().toLowerCase()) || null;
+    for (const ch of cat.channels) {
+      const chId = `ch-${channelCounter++}`;
+      channels.push({
+        id: chId,
+        name: ch.name,
+        type: ch.type,
+        parentId,
+        position: ch.position ?? channelCounter,
+        topic: ch.topic,
+        description: ch.description,
+        visibility: {
+          source: "user-provided",
+          accessibleToUser: !ch.isStaffOnly,
+          observedAt: new Date().toISOString(),
+        },
+        visibilityAnalysis: {
+          classification: ch.visibility || (ch.isStaffOnly ? "role-restricted" : "broadly-accessible"),
+          everyoneCanView: !ch.isStaffOnly,
+          rolesWithAccess: ch.suggestedRolesWithAccess || (ch.isStaffOnly ? ["Admin", "Staff"] : ["@everyone"]),
+          isCategorySynced: true,
+          hasChannelOverrides: !!ch.isStaffOnly,
+          currentUserCanAccess: true,
+          reason: ch.isStaffOnly ? "Staff-only channel in template" : "Public channel in template",
+        },
+      });
+    }
+  }
+
+  if (template.uncategorizedChannels) {
+    for (const ch of template.uncategorizedChannels) {
+      const chId = `ch-${channelCounter++}`;
+      channels.push({
+        id: chId,
+        name: ch.name,
+        type: ch.type,
+        parentId: null,
+        position: ch.position ?? channelCounter,
+        topic: ch.topic,
+        description: ch.description,
+        visibility: {
+          source: "user-provided",
+          accessibleToUser: !ch.isStaffOnly,
+          observedAt: new Date().toISOString(),
+        },
+        visibilityAnalysis: {
+          classification: ch.visibility || (ch.isStaffOnly ? "role-restricted" : "broadly-accessible"),
+          everyoneCanView: !ch.isStaffOnly,
+          rolesWithAccess: ch.suggestedRolesWithAccess || ["@everyone"],
+          isCategorySynced: true,
+          hasChannelOverrides: false,
+          currentUserCanAccess: true,
+          reason: "Uncategorized channel in template",
+        },
+      });
+    }
+  }
+
+  const roles: Role[] = [
+    {
+      id: "role-everyone",
+      name: "@everyone",
+      position: 0,
+      permissions: ["VIEW_CHANNEL", "SEND_MESSAGES", "READ_MESSAGE_HISTORY"],
+      visibility: { source: "user-provided", accessibleToUser: true, observedAt: new Date().toISOString() },
+    },
+    ...template.roles.map((r, i) => ({
+      id: `role-${i + 1}`,
+      name: r.name,
+      position: r.position ?? (i + 1),
+      color: r.color,
+      permissions: r.permissions || [],
+      mentionable: r.mentionable,
+      hoist: r.hoist,
+      visibility: { source: "user-provided" as const, accessibleToUser: true, observedAt: new Date().toISOString() },
+    })),
+  ];
+
+  for (const c of categories) {
+    c.channelIds = channels.filter((ch) => ch.parentId === c.id).map((ch) => ch.id);
+  }
+
+  return {
+    version: 1,
+    server: {
+      id: template.id,
+      name: template.name,
+      description: template.description,
+      memberCount: 100,
+      visibility: {
+        source: "user-provided",
+        accessibleToUser: true,
+        observedAt: new Date().toISOString(),
+      },
+    },
+    categories,
+    channels,
+    threads: [],
+    roles,
+    statistics: {
+      categories: categories.length,
+      textChannels: channels.filter((c) => c.type === "text").length,
+      voiceChannels: channels.filter((c) => c.type === "voice").length,
+      stageChannels: channels.filter((c) => c.type === "stage").length,
+      forumChannels: channels.filter((c) => c.type === "forum").length,
+      announcementChannels: channels.filter((c) => c.type === "announcement").length,
+      mediaChannels: channels.filter((c) => c.type === "media").length,
+      threads: 0,
+      activeThreads: 0,
+      archivedThreads: 0,
+      roles: roles.length,
+      totalChannels: channels.length,
+      channelsPerCategory: categories.reduce((acc, cat) => {
+        acc[cat.id] = cat.channelIds.length;
+        return acc;
+      }, {} as Record<string, number>),
+      channelsWithTopics: channels.filter((c) => !!c.topic).length,
+      channelsWithContent: 0,
+      channelsWithPurpose: 0,
+      purposeDistribution: {
+        ONBOARDING: 0,
+        GOVERNANCE: 0,
+        INFORMATION: 0,
+        COMMUNITY: 0,
+        SUPPORT: 0,
+        KNOWLEDGE: 0,
+        EVENTS: 0,
+        TEAM: 0,
+        INTERNAL: 0,
+        SHOWCASE: 0,
+        FEEDBACK: 0,
+        OTHER: 0,
+      },
+    },
+    scanQuality: {
+      scanStartTime: new Date().toISOString(),
+      scanEndTime: new Date().toISOString(),
+      durationMs: 0,
+      source: "user-provided",
+      resourcesDiscovered: { categories: categories.length, channels: channels.length, roles: roles.length, threads: 0 },
+      resourcesParsed: { categories: categories.length, channels: channels.length, roles: roles.length, threads: 0 },
+      resourcesSkipped: 0,
+      permissionDataQuality: "full",
+      completenessScore: 100,
+      missingDataWarnings: [],
+    },
+    collectedAt: new Date().toISOString(),
+  };
+}
+
 // ── Template Validator ─────────────────────────
 
 export function validateTemplate(data: unknown): { valid: boolean; errors: string[] } {
@@ -235,3 +417,4 @@ export function validateTemplate(data: unknown): { valid: boolean; errors: strin
     errors,
   };
 }
+

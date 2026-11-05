@@ -15,6 +15,7 @@ import ExportCenter from "./components/ExportCenter";
 import SearchBar from "./components/SearchBar";
 import ChannelDetail from "./components/ChannelDetail";
 import SettingsModal from "./components/SettingsModal";
+import ServerComparison from "./components/ServerComparison";
 import { 
   LayoutDashboard, 
   Network, 
@@ -33,26 +34,32 @@ import {
   Terminal,
   History,
   Download,
+  GitCompare,
 } from "lucide-react";
 
 export default function App() {
   const { currentServer, blueprint, checkActiveTab, requestAnalysis } = useServerStore();
-  const { activeTab, setActiveTab, selectedChannelId } = useUIStore();
+  const { activeTab, setActiveTab, selectedChannelId, experienceMode, setExperienceMode } = useUIStore();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  const TABS: { id: SidePanelTab; label: string; icon: React.ReactNode }[] = [
-    { id: "overview", label: "Overview", icon: <LayoutDashboard className="w-4 h-4" /> },
-    { id: "tree", label: "Tree", icon: <FolderTree className="w-4 h-4" /> },
-    { id: "graph", label: "Graph", icon: <Network className="w-4 h-4" /> },
-    { id: "roles", label: "Roles", icon: <Shield className="w-4 h-4" /> },
-    { id: "audit", label: "Audit", icon: <ShieldAlert className="w-4 h-4" /> },
-    { id: "architect", label: "AI Architect", icon: <Sparkles className="w-4 h-4" /> },
-    { id: "templates", label: "Templates", icon: <LayoutTemplate className="w-4 h-4" /> },
-    { id: "automation", label: "Automation", icon: <Terminal className="w-4 h-4" /> },
-    { id: "history", label: "History", icon: <History className="w-4 h-4" /> },
-    { id: "export", label: "Export", icon: <Download className="w-4 h-4" /> },
-    { id: "stats", label: "Stats", icon: <LineChart className="w-4 h-4" /> },
+  const ALL_TABS: { id: SidePanelTab; label: string; icon: React.ReactNode; beginner: boolean }[] = [
+    { id: "overview", label: "Overview", icon: <LayoutDashboard className="w-4 h-4" />, beginner: true },
+    { id: "tree", label: "Tree", icon: <FolderTree className="w-4 h-4" />, beginner: true },
+    { id: "compare", label: "Compare", icon: <GitCompare className="w-4 h-4" />, beginner: true },
+    { id: "graph", label: "Graph", icon: <Network className="w-4 h-4" />, beginner: false },
+    { id: "roles", label: "Roles", icon: <Shield className="w-4 h-4" />, beginner: false },
+    { id: "audit", label: "Audit", icon: <ShieldAlert className="w-4 h-4" />, beginner: true },
+    { id: "architect", label: "AI Architect", icon: <Sparkles className="w-4 h-4" />, beginner: false },
+    { id: "templates", label: "Templates", icon: <LayoutTemplate className="w-4 h-4" />, beginner: true },
+    { id: "automation", label: "Automation", icon: <Terminal className="w-4 h-4" />, beginner: false },
+    { id: "history", label: "History", icon: <History className="w-4 h-4" />, beginner: false },
+    { id: "export", label: "Export", icon: <Download className="w-4 h-4" />, beginner: true },
+    { id: "stats", label: "Stats", icon: <LineChart className="w-4 h-4" />, beginner: false },
   ];
+
+  const visibleTabs = experienceMode === "beginner"
+    ? ALL_TABS.filter((t) => t.beginner)
+    : ALL_TABS;
 
   // On mount, actively check the current tab
   useEffect(() => {
@@ -85,6 +92,8 @@ export default function App() {
         return <ServerOverview />;
       case "tree":
         return <ServerTree />;
+      case "compare":
+        return <ServerComparison />;
       case "graph":
         return <ServerGraph />;
       case "roles":
@@ -122,6 +131,19 @@ export default function App() {
             </h1>
           </div>
           <div className="flex items-center gap-1.5">
+            {/* Experience Mode Toggle (Section 14) */}
+            <button
+              onClick={() => setExperienceMode(experienceMode === "beginner" ? "advanced" : "beginner")}
+              title={`Switch mode. Current: ${experienceMode === "beginner" ? "Beginner (Essential tools)" : "Advanced (Full suite)"}`}
+              className={`text-[10px] font-mono font-semibold px-2 py-1 rounded-lg border transition-colors ${
+                experienceMode === "beginner"
+                  ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20"
+                  : "bg-discord-blurple/10 text-discord-blurple border-discord-blurple/30 hover:bg-discord-blurple/20"
+              }`}
+            >
+              {experienceMode === "beginner" ? "Beginner" : "Advanced"}
+            </button>
+
             <button
               onClick={() => checkActiveTab()}
               title="Refresh / Re-detect active tab"
@@ -163,7 +185,7 @@ export default function App() {
       {isServerActive && (
         <nav className="flex-shrink-0 px-3 pt-2 pb-1">
           <div className="flex gap-1 p-1 bg-surface-900/40 rounded-lg overflow-x-auto scrollbar-none">
-            {TABS.map((tab) => (
+            {visibleTabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
