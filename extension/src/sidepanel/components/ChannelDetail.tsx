@@ -124,26 +124,44 @@ export default function ChannelDetail() {
               <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-discord-blurple" /> Access & Visibility Status
               </span>
-              {vis && (
-                <span
-                  className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
-                    vis.classification === "broadly-accessible"
-                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+              <div className="flex items-center gap-1">
+                {channel.isPrivate && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold border bg-amber-500/15 text-amber-300 border-amber-500/40 flex items-center gap-1">
+                    <Lock className="w-2.5 h-2.5" /> Private
+                  </span>
+                )}
+                {vis && (
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
+                      vis.classification === "broadly-accessible"
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                        : vis.classification === "role-restricted"
+                        ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                        : "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                    }`}
+                  >
+                    {vis.classification === "broadly-accessible"
+                      ? "Common / Public"
                       : vis.classification === "role-restricted"
-                      ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                      : "bg-rose-500/10 text-rose-400 border-rose-500/30"
-                  }`}
-                >
-                  {vis.classification === "broadly-accessible"
-                    ? "Broadly Accessible"
-                    : vis.classification === "role-restricted"
-                    ? "Role Restricted"
-                    : vis.classification === "member-restricted"
-                    ? "Member Restricted"
-                    : "Inaccessible"}
-                </span>
-              )}
+                      ? "Role Restricted"
+                      : vis.classification === "member-restricted"
+                      ? "Member Restricted"
+                      : "Inaccessible"}
+                  </span>
+                )}
+              </div>
             </div>
+
+            {/* Audience Badge if Private */}
+            {channel.privateAudience && (
+              <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20 flex items-center justify-between text-xs">
+                <span className="text-text-muted text-[11px]">Intended Purpose / Audience:</span>
+                <span className="font-semibold text-amber-300 flex items-center gap-1">
+                  <Lock className="w-3 h-3 text-amber-400" />
+                  {channel.privateAudience}
+                </span>
+              </div>
+            )}
 
             {/* Reason */}
             {vis && (
@@ -174,6 +192,25 @@ export default function ChannelDetail() {
                 </span>
               </div>
             </div>
+
+            {/* In-Discord Scraper Tip if Overwrites Not Scanned Yet */}
+            {(!channel.permissions || channel.permissions.length === 0) && (
+              <div className="p-2.5 rounded bg-discord-blurple/10 border border-discord-blurple/30 text-xs space-y-1.5 mt-2">
+                <div className="flex items-center gap-1.5 font-semibold text-discord-blurple">
+                  <Info className="w-4 h-4 flex-shrink-0" />
+                  <span>Scrape Exact Overwrite Rules</span>
+                </div>
+                <p className="text-[11px] text-text-secondary leading-relaxed">
+                  As the server owner, view explicit role permissions by opening:
+                </p>
+                <div className="bg-surface-900/90 px-2 py-1 rounded text-[11px] font-mono text-text-primary border border-surface-500/30">
+                  Right-click #{channel.name} ➔ Edit Channel ➔ Permissions
+                </div>
+                <p className="text-[10px] text-text-muted">
+                  MapMyServer's real-time watcher will instantly scrap all role bitfield allowances & denials.
+                </p>
+              </div>
+            )}
 
             {/* Roles with explicit access */}
             {vis && vis.rolesWithAccess.length > 0 && (

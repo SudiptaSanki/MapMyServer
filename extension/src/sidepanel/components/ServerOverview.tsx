@@ -26,6 +26,9 @@ import {
   ShieldCheck,
   ShieldAlert,
   ArrowRight,
+  CheckCircle2,
+  Lock,
+  HelpCircle,
 } from "lucide-react";
 
 const STAT_ITEMS = [
@@ -50,6 +53,28 @@ export default function ServerOverview() {
 
   const auditReport = useMemo(() => (blueprint ? runSecurityAudit(blueprint) : null), [blueprint]);
   const captureModeInfo = useMemo(() => (blueprint ? detectCaptureMode(blueprint) : null), [blueprint]);
+
+  const rolesCount = useMemo(() => {
+    return blueprint?.roles.filter((r) => r.name.toLowerCase() !== "@everyone").length || 0;
+  }, [blueprint]);
+
+  const privateChannelsCount = useMemo(() => {
+    return (
+      blueprint?.channels.filter(
+        (c) =>
+          c.isPrivate ||
+          c.visibilityAnalysis?.classification === "role-restricted" ||
+          c.visibilityAnalysis?.classification === "member-restricted"
+      ).length || 0
+    );
+  }, [blueprint]);
+
+  const channelsWithOverrides = useMemo(() => {
+    return blueprint?.channels.filter((c) => c.permissions && c.permissions.length > 0) || [];
+  }, [blueprint]);
+
+  const hasAllPrivateOverrides =
+    privateChannelsCount === 0 || channelsWithOverrides.length >= privateChannelsCount;
 
   const handleCopyAIPrompt = async () => {
     if (!blueprint) return;
@@ -176,6 +201,141 @@ export default function ServerOverview() {
               <span>{captureModeInfo.notice}</span>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Deep Architecture Scraping & In-Discord Settings Guide */}
+      {blueprint && (
+        <div className="glass-card p-3 border-discord-blurple/30 space-y-2.5">
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-1.5 font-bold text-text-primary">
+              <Compass className="w-4 h-4 text-discord-blurple" />
+              <span>Deep Architecture Scraping Guide</span>
+            </div>
+            <span className="text-[10px] font-mono text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded">
+              Live Real-Time
+            </span>
+          </div>
+          <p className="text-[11px] text-text-secondary leading-snug">
+            Open these settings in your Discord tab. MapMyServer's watcher will automatically scrape and verify the data without page reloads.
+          </p>
+
+          <div className="space-y-2 pt-1 text-xs">
+            {/* Step 1: Channels & Privacy */}
+            <div className="p-2.5 rounded bg-surface-900 border border-surface-500/20 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-text-primary flex items-center gap-1.5 text-xs">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Channels & Categories</span>
+                </span>
+                <span className="text-[10px] font-mono text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                  {blueprint.channels.length} Channels Captured
+                </span>
+              </div>
+              <div className="text-[10px] text-text-muted flex items-center gap-2 pt-0.5">
+                <span className="text-emerald-300">
+                  {blueprint.channels.length - privateChannelsCount} Common / Public
+                </span>
+                <span>•</span>
+                <span className="text-amber-300 flex items-center gap-1">
+                  <Lock className="w-2.5 h-2.5" />
+                  {privateChannelsCount} Private / Restricted
+                </span>
+              </div>
+            </div>
+
+            {/* Step 2: Server Roles & Hierarchy */}
+            <div
+              className={`p-2.5 rounded border space-y-1 ${
+                rolesCount > 0 ? "bg-surface-900 border-surface-500/20" : "bg-amber-500/5 border-amber-500/30"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-text-primary flex items-center gap-1.5 text-xs">
+                  {rolesCount > 0 ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                  )}
+                  <span>Server Roles & Order</span>
+                </span>
+                <span
+                  className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                    rolesCount > 0 ? "text-emerald-400 bg-emerald-500/10" : "text-amber-300 bg-amber-500/10"
+                  }`}
+                >
+                  {rolesCount > 0 ? `${rolesCount} Roles Captured` : "Action Needed"}
+                </span>
+              </div>
+              {rolesCount === 0 ? (
+                <div className="text-[10px] text-amber-200/90 leading-relaxed bg-amber-500/10 p-2 rounded border border-amber-500/20">
+                  <strong>How to capture:</strong> In your Discord tab, click your server title (top-left) ➔{" "}
+                  <strong>Server Settings ➔ Roles</strong>. Our watcher will auto-capture all role positions, colors, and permissions!
+                </div>
+              ) : (
+                <div className="text-[10px] text-text-muted">
+                  Full role hierarchy and colors captured. Viewable in the <strong>Roles</strong> tab.
+                </div>
+              )}
+            </div>
+
+            {/* Step 3: Exact Permission Overwrites for Private Channels */}
+            <div
+              className={`p-2.5 rounded border space-y-1 ${
+                hasAllPrivateOverrides
+                  ? "bg-surface-900 border-surface-500/20"
+                  : "bg-discord-blurple/5 border-discord-blurple/30"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-text-primary flex items-center gap-1.5 text-xs">
+                  {hasAllPrivateOverrides ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <Lock className="w-3.5 h-3.5 text-discord-blurple" />
+                  )}
+                  <span>Private Channel Permissions</span>
+                </span>
+                <span className="text-[10px] font-mono text-discord-blurple bg-discord-blurple/10 px-1.5 py-0.5 rounded font-bold">
+                  {channelsWithOverrides.length} Channels with Overwrites
+                </span>
+              </div>
+              <div className="text-[10px] text-text-secondary leading-relaxed">
+                {hasAllPrivateOverrides ? (
+                  <span className="text-emerald-300">
+                    All private channels have exact allow/deny bitfield overrides captured.
+                  </span>
+                ) : (
+                  <span>
+                    To capture exact allow/deny rules: In Discord, right-click any private channel ➔{" "}
+                    <strong>Edit Channel ➔ Permissions</strong>. MapMyServer will auto-detect and sync the bitfields.
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Step 4: Server Community Overview */}
+            <div className="p-2.5 rounded bg-surface-900 border border-surface-500/20 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-text-primary flex items-center gap-1.5 text-xs">
+                  {blueprint.server.description ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <HelpCircle className="w-3.5 h-3.5 text-text-muted" />
+                  )}
+                  <span>Server Description & Guidelines</span>
+                </span>
+                <span className="text-[10px] font-mono text-text-muted">
+                  {blueprint.server.description ? "Captured" : "Server Settings ➔ Overview"}
+                </span>
+              </div>
+              {!blueprint.server.description && (
+                <div className="text-[10px] text-text-muted">
+                  Tip: Open <strong>Server Settings ➔ Overview</strong> in Discord to capture server description.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

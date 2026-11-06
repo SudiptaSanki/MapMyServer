@@ -113,6 +113,8 @@ export interface Category {
   name: string;
   position: number;
   channelIds: string[];
+  isPrivate?: boolean;
+  privateAudience?: string;
   visibility: VisibilityInfo;
 }
 
@@ -241,6 +243,8 @@ export interface Channel {
   metadata?: ChannelMetadata;
   content?: ChannelContent;
   purpose?: PurposeClassification;
+  isPrivate?: boolean;
+  privateAudience?: string;
   visibility: VisibilityInfo;
 }
 
@@ -348,6 +352,8 @@ export interface TreeNode {
     description?: string;
     purpose?: PurposeClassification;
     hasContent?: boolean;
+    isPrivate?: boolean;
+    privateAudience?: string;
     visibilityAnalysis?: ChannelVisibilityAnalysis;
   };
 }
@@ -369,4 +375,5 @@ export * from "./scriptGenerator";
 export * from "./changePlannerTypes";
 export * from "./changeMonitor";
 export * from "./serverClonerEngine";
+export * from "./serverRoadmap";
 

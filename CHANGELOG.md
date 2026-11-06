@@ -4,6 +4,38 @@ All notable changes to the MapMyServer project will be documented in this file.
 
 ---
 
+## [1.1.0] - 2026-11-06
+
+### Enhanced Private Channel Intelligence, In-Discord Scraping Guide & Live Implementation Roadmap
+
+#### New Features & Improvements
+- **Private vs. Common/Public Channel & Category Intelligence**:
+  - Direct DOM padlock detection (`detectPadlock`) identifying restricted channels and categories even prior to opening Discord channel permissions modals.
+  - Automatic Private Audience inference (`inferPrivateAudience`), categorizing private areas into Server Administration Only, Staff & Moderation Team, Bot Logs & System Audits, Server Boosters & VIP, Developers & Tech Staff, and Private Voice & Meetings.
+  - Prominent visual lock badges and audience pills across Server Tree, Architecture Graph, and Smart Cloner.
+  - Enhanced channel visibility evaluation prioritizing padlock cues into `role-restricted` status with explanatory audience reasoning.
+- **Deep Architecture Scraping & In-Discord Settings Guide**:
+  - Interactive deep-scraping checklist in `ServerOverview.tsx` guiding server owners to exact Discord settings:
+    - *Roles & Hierarchy*: Server Settings ➔ Roles
+    - *Private Channel Overwrites*: Right-click Channel ➔ Edit Channel ➔ Permissions
+    - *Server Description & Details*: Server Settings ➔ Overview
+  - Real-time DOM watcher monitoring Server Settings ➔ Overview to auto-extract server descriptions and dispatch `SERVER_OVERVIEW_COLLECTED`.
+  - Contextual in-Discord tips in `ChannelDetail.tsx` when explicit overrides have not yet been scanned.
+- **AI Architecture Suggestions with True Grounded Context**:
+  - Grounded prompt construction (`aiContextBuilder.ts`) embedding true channel privacy classifications (`[PRIVATE: Audience]` vs `[PUBLIC/COMMON]`), full role hierarchy, overwrites, and security posture.
+  - BYOK onboarding callout in AI Advisor guiding users to connect OpenAI, Anthropic, Gemini, Groq, or local Ollama credentials.
+- **Server Implementation Roadmap & Live Progress Tracker**:
+  - Persistent architecture roadmap storage (`roadmapService.ts`) in `chrome.storage.local` with survival across browser and window restarts.
+  - One-click "Adopt Proposal as Implementation Roadmap" from the AI Architecture Planning Sandbox.
+  - Real-time progress evaluation (`evaluateRoadmapProgress`) with percentage metrics and completed vs pending counters.
+  - **Green Light Highlights**: Verified categories, channels, and roles light up in glowing emerald `[✓ COMPLETED] / [✓ Live in Discord]`.
+  - Actionable pending cards detailing Discord recreation steps (channel type, category placement, and private role access).
+  - Cross-Server Comparison & Tracking: verify progress against the active Discord server or any saved secondary server.
+  - One-click "Re-scan & Verify Discord Changes" triggering live DOM sweeps.
+  - Markdown checklist export and reset/delete plan safeguards.
+
+---
+
 ## [1.0.0] - 2026-11-05
 
 ### Major Release — Stable Public Release v1.0
@@ -49,3 +81,4 @@ MapMyServer v1.0.0 is the first stable public release of the standalone, open-so
 - **Testing & Quality Assurance**:
   - 63 automated unit and integration tests across 9 test suites passing 100%.
   - Clean TypeScript compilation across `@mapmyserver/shared`, `discord-server-blueprint-extension`, and `@mapmyserver/backend`.
+

@@ -57,6 +57,7 @@ import {
   Info,
   Server,
   RefreshCw,
+  Lock,
 } from "lucide-react";
 
 export default function SmartCloner() {
@@ -503,15 +504,32 @@ Distinguish observed source facts from your suggestions. Include:
                     <div className="flex items-center gap-1.5">
                       <Folder className="w-3.5 h-3.5 text-discord-blurple" />
                       <span>{cat.name}</span>
+                      {cat.isPrivate && (
+                        <span className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.2 rounded border border-amber-500/40 bg-amber-500/15 text-amber-300 font-semibold uppercase tracking-wider ml-1">
+                          <Lock className="w-2.5 h-2.5 text-amber-400" />
+                          <span>{cat.privateAudience || "Private"}</span>
+                        </span>
+                      )}
                     </div>
                     <span className="text-[10px] font-mono text-text-muted">{catChannels.length} channels</span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-1 pl-4 border-l border-surface-500/20 pt-1">
+                  <div className="grid grid-cols-2 gap-1.5 pl-4 border-l border-surface-500/20 pt-1">
                     {catChannels.map((ch) => (
-                      <div key={ch.id} className="flex items-center gap-1 text-[11px] text-text-secondary truncate">
-                        {getChannelIcon(ch.type)}
-                        <span className="truncate">{ch.name}</span>
+                      <div key={ch.id} className="flex items-center justify-between gap-1 text-[11px] text-text-secondary truncate bg-surface-950/40 px-1.5 py-0.5 rounded border border-surface-500/10">
+                        <div className="flex items-center gap-1 truncate">
+                          {getChannelIcon(ch.type)}
+                          <span className="truncate">{ch.name}</span>
+                        </div>
+                        {ch.isPrivate && (
+                          <span
+                            title={`Private Channel: ${ch.privateAudience || "Restricted"}`}
+                            className="flex items-center gap-0.5 text-[8px] px-1 py-0.2 rounded border border-amber-500/30 bg-amber-500/15 text-amber-300 flex-shrink-0"
+                          >
+                            <Lock className="w-2 h-2 text-amber-400" />
+                            <span className="truncate max-w-[50px]">{ch.privateAudience || "Private"}</span>
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -590,6 +608,12 @@ Distinguish observed source facts from your suggestions. Include:
                       />
                       <Folder className="w-3.5 h-3.5 text-discord-blurple flex-shrink-0" />
                       <span className="truncate">{cat.name}</span>
+                      {cat.isPrivate && (
+                        <span className="flex items-center gap-0.5 text-[8px] px-1 py-0.2 rounded border border-amber-500/40 bg-amber-500/15 text-amber-300 font-semibold uppercase flex-shrink-0">
+                          <Lock className="w-2 h-2 text-amber-400" />
+                          <span>{cat.privateAudience || "Private"}</span>
+                        </span>
+                      )}
                     </label>
 
                     {/* Inline Rename Category */}
@@ -632,6 +656,12 @@ Distinguish observed source facts from your suggestions. Include:
                               />
                               {getChannelIcon(ch.type)}
                               <span className="truncate">{ch.name}</span>
+                              {ch.isPrivate && (
+                                <span className="flex items-center gap-0.5 text-[8px] px-1 py-0.2 rounded border border-amber-500/30 bg-amber-500/10 text-amber-300 flex-shrink-0">
+                                  <Lock className="w-2 h-2 text-amber-400" />
+                                  <span>{ch.privateAudience || "Private"}</span>
+                                </span>
+                              )}
                             </label>
 
                             <input

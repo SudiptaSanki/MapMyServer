@@ -198,6 +198,8 @@ export function buildTree(blueprint: ServerBlueprint): TreeNode {
       metadata: {
         channelCount: category.channelIds.length,
         position: category.position,
+        isPrivate: category.isPrivate,
+        privateAudience: category.privateAudience,
       },
     };
 
@@ -270,6 +272,8 @@ function buildChannelNode(
       purpose: channel.purpose,
       hasContent,
       visibilityAnalysis: channel.visibilityAnalysis,
+      isPrivate: channel.isPrivate,
+      privateAudience: channel.privateAudience,
     },
   };
 

@@ -94,7 +94,8 @@ export function buildServerAIContext(
 
     // Channels organized by Category
     for (const cat of blueprint.categories) {
-      parts.push(`\n[CATEGORY] "${sanitizeForAI(cat.name)}" (ID: ${cat.id})`);
+      const catPriv = cat.isPrivate ? ` [PRIVATE CATEGORY: ${cat.privateAudience || "Restricted"}]` : "";
+      parts.push(`\n[CATEGORY] "${sanitizeForAI(cat.name)}"${catPriv} (ID: ${cat.id})`);
       const catChannels = blueprint.channels.filter((c) => c.parentId === cat.id);
       if (catChannels.length === 0) {
         parts.push(`  (Empty Category - 0 channels)`);
@@ -150,11 +151,15 @@ function formatChannelEntry(
   toggles: ContextToggles
 ) {
   const vis = ch.visibilityAnalysis?.classification || "unknown";
+  const isPrivate = Boolean(ch.isPrivate || vis === "role-restricted" || vis === "member-restricted");
+  const privacyTag = isPrivate
+    ? `[PRIVATE: ${ch.privateAudience || "Restricted"}]`
+    : "[PUBLIC/COMMON]";
   const everyoneCan = ch.visibilityAnalysis?.everyoneCanView ? "everyone-can-view" : "everyone-denied";
   const roles = ch.visibilityAnalysis?.rolesWithAccess?.join(", ") || "";
   const rolesStr = roles ? ` | Roles with access: [${roles}]` : "";
 
-  let line = `  - #${sanitizeForAI(ch.name)} (${ch.type}) [Visibility: ${vis}, ${everyoneCan}${rolesStr}]`;
+  let line = `  - #${sanitizeForAI(ch.name)} (${ch.type}) ${privacyTag} [Visibility: ${vis}, ${everyoneCan}${rolesStr}]`;
   parts.push(line);
 
   if (toggles.includeTopics && ch.topic) {

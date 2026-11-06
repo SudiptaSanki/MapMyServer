@@ -8,7 +8,7 @@
  *  - Multi-Audience Documentation Generator
  * ───────────────────────────────────────────── */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useServerStore } from "@/store/serverStore";
 import {
   type AIProviderConfig,
@@ -18,13 +18,24 @@ import {
   type AIMessage,
   type DocFormat,
   type DocAudience,
+  type ActiveServerPlan,
+  type RoadmapProgressReport,
+  type ServerBlueprint,
   buildServerAIContext,
   generateServerDocumentation,
   runSecurityAudit,
+  evaluateRoadmapProgress,
+  proposalToActivePlan,
 } from "@mapmyserver/shared";
 import { AIService } from "../../ai/services/AIService";
 import { AIRecommendationEngine } from "../../ai/services/AIRecommendationEngine";
 import { AIArchitecturePlanner } from "../../ai/services/AIArchitecturePlanner";
+import {
+  saveActiveServerPlan,
+  loadActiveServerPlan,
+  deleteActiveServerPlan,
+} from "@/services/roadmapService";
+import { listServers, loadBlueprint } from "@/services/storageService";
 import AISettingsModal from "./AISettingsModal";
 import {
   Sparkles,
@@ -44,9 +55,12 @@ import {
   FolderPlus,
   MessageSquare,
   Compass,
+  Circle,
+  Lock,
+  Folder,
 } from "lucide-react";
 
-type WorkspaceMode = "chat" | "planner" | "recommendations" | "docs";
+type WorkspaceMode = "chat" | "planner" | "roadmap" | "recommendations" | "docs";
 
 const QUICK_PROMPTS = [
   "How can I improve my server architecture?",
@@ -67,7 +81,7 @@ const ARCHETYPES = [
 ];
 
 export default function AIArchitect() {
-  const { blueprint } = useServerStore();
+  const { blueprint, requestAnalysis } = useServerStore();
 
   const [mode, setMode] = useState<WorkspaceMode>("chat");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -92,6 +106,16 @@ export default function AIArchitect() {
   const [proposalDiff, setProposalDiff] = useState<ArchitectureDiff | null>(null);
   const [isGeneratingProposal, setIsGeneratingProposal] = useState(false);
 
+  // Roadmap & Progress Tracker State (Persisted across browser sessions)
+  const [activePlan, setActivePlan] = useState<ActiveServerPlan | null>(null);
+  const [selectedCompareServerId, setSelectedCompareServerId] = useState<string>("current");
+  const [compareBlueprint, setCompareBlueprint] = useState<ServerBlueprint | null>(null);
+  const [savedServersList, setSavedServersList] = useState<Array<{ id: string; name: string }>>([]);
+  const [roadmapCopied, setRoadmapCopied] = useState(false);
+  const [planSuccessMsg, setPlanSuccessMsg] = useState<string | null>(null);
+  const [isVerifyingChanges, setIsVerifyingChanges] = useState(false);
+  const [roadmapFilter, setRoadmapFilter] = useState<"all" | "completed" | "pending">("all");
+
   // Documentation Generator State
   const [docFormat, setDocFormat] = useState<DocFormat>("markdown");
   const [docAudience, setDocAudience] = useState<DocAudience>("developer");
@@ -108,7 +132,7 @@ export default function AIArchitect() {
     refreshConfig();
   }, []);
 
-  // Load existing recommendations & proposals when blueprint changes
+  // Load existing recommendations, proposals, active roadmap, and saved servers
   useEffect(() => {
     if (!blueprint) return;
     AIRecommendationEngine.loadRecommendations(blueprint.server.id).then(setRecommendations);
@@ -118,7 +142,20 @@ export default function AIArchitect() {
         setProposalDiff(AIArchitecturePlanner.getDiff(blueprint, props[0]));
       }
     });
+    loadActiveServerPlan(blueprint.server.id).then(setActivePlan);
+    listServers().then((list) => {
+      setSavedServersList(list.map((s) => ({ id: s.id, name: s.name })));
+    });
   }, [blueprint]);
+
+  // Load secondary comparison blueprint if chosen
+  useEffect(() => {
+    if (selectedCompareServerId === "current") {
+      setCompareBlueprint(null);
+    } else {
+      loadBlueprint(selectedCompareServerId).then(setCompareBlueprint);
+    }
+  }, [selectedCompareServerId]);
 
   // Auto-scroll chat
   useEffect(() => {
@@ -238,6 +275,83 @@ export default function AIArchitect() {
     }
   };
 
+  // Evaluate Roadmap Progress
+  const currentEvalBlueprint = useMemo(() => {
+    if (selectedCompareServerId !== "current" && compareBlueprint) {
+      return compareBlueprint;
+    }
+    return blueprint;
+  }, [selectedCompareServerId, compareBlueprint, blueprint]);
+
+  const roadmapReport: RoadmapProgressReport | null = useMemo(() => {
+    if (!activePlan || !currentEvalBlueprint) return null;
+    return evaluateRoadmapProgress(currentEvalBlueprint, activePlan);
+  }, [activePlan, currentEvalBlueprint]);
+
+  // Adopt Proposal as Implementation Roadmap
+  const handleAdoptProposal = async () => {
+    if (!blueprint || !activeProposal) return;
+    const plan = proposalToActivePlan(activeProposal, blueprint.server.name);
+    await saveActiveServerPlan(plan);
+    setActivePlan(plan);
+    setMode("roadmap");
+    setPlanSuccessMsg("Adopted AI Architecture Proposal as your active server roadmap!");
+    setTimeout(() => setPlanSuccessMsg(null), 3500);
+  };
+
+  // Delete / Reset Plan
+  const handleDeletePlan = async () => {
+    if (!activePlan) return;
+    if (confirm("Are you sure you want to delete and reset your adopted server roadmap?")) {
+      await deleteActiveServerPlan(activePlan.serverId);
+      setActivePlan(null);
+      setPlanSuccessMsg("Roadmap reset successfully.");
+      setTimeout(() => setPlanSuccessMsg(null), 2500);
+    }
+  };
+
+  // Re-scan and Verify Live Changes
+  const handleVerifyProgress = async () => {
+    setIsVerifyingChanges(true);
+    try {
+      await requestAnalysis();
+      setPlanSuccessMsg("Re-scanned server. Live verification metrics updated!");
+    } catch (err: unknown) {
+      alert(`Could not re-scan server: ${(err as Error).message}`);
+    } finally {
+      setIsVerifyingChanges(false);
+      setTimeout(() => setPlanSuccessMsg(null), 3000);
+    }
+  };
+
+  // Export Roadmap Checklist to Markdown
+  const handleCopyRoadmapChecklist = async () => {
+    if (!roadmapReport || !activePlan) return;
+    let md = `# Implementation Roadmap: ${activePlan.title}\n`;
+    md += `Target Server: ${roadmapReport.serverName}\n`;
+    md += `Progress: ${roadmapReport.percentCompleted}% (${roadmapReport.completedItems}/${roadmapReport.totalItems} elements completed)\n\n`;
+
+    for (const cat of roadmapReport.categoryProgress) {
+      const catCheck = cat.isCompleted ? "[x]" : "[ ]";
+      const priv = cat.planned.isPrivate ? ` [Private: ${cat.planned.privateAudience || "Restricted"}]` : "";
+      md += `### ${catCheck} Category: ${cat.planned.name}${priv}\n`;
+
+      const channelsInCat = roadmapReport.channelProgress.filter(
+        (ch) => ch.planned.categoryId === cat.planned.id || ch.planned.categoryName === cat.planned.name
+      );
+      for (const ch of channelsInCat) {
+        const chCheck = ch.isCompleted ? "[x]" : "[ ]";
+        const chPriv = ch.planned.isPrivate ? ` (🔒 ${ch.planned.privateAudience || "Private"})` : "";
+        md += `- ${chCheck} #${ch.planned.name} [${ch.planned.type}]${chPriv}\n`;
+      }
+      md += "\n";
+    }
+
+    await navigator.clipboard.writeText(md);
+    setRoadmapCopied(true);
+    setTimeout(() => setRoadmapCopied(false), 2000);
+  };
+
   if (!blueprint) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center text-text-muted">
@@ -304,7 +418,19 @@ export default function AIArchitect() {
           }`}
         >
           <Layers className="w-3 h-3" />
-          <span>Planning Mode</span>
+          <span>Planning</span>
+        </button>
+
+        <button
+          onClick={() => setMode("roadmap")}
+          className={`flex-1 py-1 rounded font-medium transition-colors flex items-center justify-center gap-1 ${
+            mode === "roadmap"
+              ? "bg-discord-blurple text-white shadow-sm"
+              : "text-text-muted hover:text-text-primary"
+          }`}
+        >
+          <Compass className="w-3 h-3" />
+          <span>Roadmap {activePlan ? `(${roadmapReport?.percentCompleted ?? 0}%)` : ""}</span>
         </button>
 
         <button
@@ -316,7 +442,7 @@ export default function AIArchitect() {
           }`}
         >
           <Lightbulb className="w-3 h-3" />
-          <span>Recommendations ({recommendations.length})</span>
+          <span>Recs ({recommendations.length})</span>
         </button>
 
         <button
@@ -346,6 +472,26 @@ export default function AIArchitect() {
                 <p className="text-[11px] text-text-muted max-w-xs mx-auto leading-relaxed">
                   I have analyzed your server blueprint: {blueprint.categories.length} categories, {blueprint.channels.length} channels, and {blueprint.roles.length} roles. Ask anything about organization, permissions, or scaling.
                 </p>
+
+                {/* API Key Prompt Banner if not configured */}
+                {!activeConfig?.apiKey && (
+                  <div className="p-3 rounded-lg bg-discord-blurple/10 border border-discord-blurple/30 text-xs space-y-2 max-w-xs mx-auto text-left">
+                    <div className="flex items-center gap-1.5 font-bold text-discord-blurple">
+                      <Sparkles className="w-4 h-4 text-amber-300" />
+                      <span>Connect AI Model (BYOK)</span>
+                    </div>
+                    <p className="text-[11px] text-text-secondary leading-relaxed">
+                      Provide your OpenAI, Gemini, Anthropic, Groq, or Ollama API key to receive tailored architectural improvements for <strong>{blueprint.server.name}</strong>.
+                    </p>
+                    <button
+                      onClick={() => setIsSettingsOpen(true)}
+                      className="btn-primary text-xs py-1 px-3 flex items-center gap-1"
+                    >
+                      <Settings className="w-3.5 h-3.5" />
+                      <span>Configure API Key</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* Quick Prompts */}
                 <div className="flex flex-col gap-1.5 pt-2 max-w-xs mx-auto text-left">
@@ -585,7 +731,341 @@ export default function AIArchitect() {
                   </div>
                 </div>
               )}
+              {/* Adopt Proposal Button */}
+              <div className="pt-2 border-t border-surface-500/20">
+                <button
+                  onClick={handleAdoptProposal}
+                  className="btn-primary w-full py-2 flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 font-semibold text-white shadow-md text-xs"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+                  <span>Adopt Proposal as Implementation Roadmap</span>
+                </button>
+              </div>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Mode 3: Roadmap & Implementation Tracker (Live Green-Light Verification) ── */}
+      {mode === "roadmap" && (
+        <div className="flex-1 overflow-y-auto space-y-3 pr-1 text-xs">
+          {planSuccessMsg && (
+            <div className="p-2.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2 animate-fade-in">
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+              <span>{planSuccessMsg}</span>
+            </div>
+          )}
+
+          {!activePlan ? (
+            <div className="glass-card p-6 text-center space-y-3">
+              <div className="w-12 h-12 rounded-full bg-discord-blurple/20 text-discord-blurple flex items-center justify-center mx-auto">
+                <Compass className="w-6 h-6" />
+              </div>
+              <h3 className="font-bold text-text-primary text-sm">No Active Implementation Roadmap Adopted</h3>
+              <p className="text-xs text-text-secondary max-w-sm mx-auto leading-relaxed">
+                Adopt an AI architecture proposal or ask the Advisor to formulate a plan. MapMyServer will save your plan in browser memory &amp; local storage (persisting across window closes) and monitor your Discord server changes with real-time green light indicators.
+              </p>
+              <div className="flex items-center justify-center gap-2 pt-2">
+                <button
+                  onClick={() => setMode("planner")}
+                  className="btn-primary py-1.5 px-3 text-xs flex items-center gap-1.5"
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Open Architecture Sandbox</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setMode("chat");
+                    handleSendMessage("Audit my server channels and propose an ideal, clean category and channel layout to implement.");
+                  }}
+                  className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Ask AI Advisor</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Active Plan Header */}
+              <div className="glass-card p-3 space-y-2.5">
+                <div className="flex items-start justify-between gap-2 border-b border-surface-500/20 pb-2">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-text-primary text-xs">{activePlan.title}</span>
+                      <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">
+                        ACTIVE ROADMAP
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-text-secondary mt-0.5 leading-relaxed">
+                      {activePlan.description}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleDeletePlan}
+                    className="p-1 rounded text-text-muted hover:text-rose-400 hover:bg-rose-500/10 transition-colors flex-shrink-0"
+                    title="Delete & reset active plan"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Target Comparison Selector */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-text-muted font-semibold">Verify Changes On:</span>
+                    <span className="text-[10px] text-discord-blurple font-mono">
+                      {selectedCompareServerId === "current" ? "Active Discord Server" : "Secondary Server"}
+                    </span>
+                  </div>
+                  <select
+                    value={selectedCompareServerId}
+                    onChange={(e) => setSelectedCompareServerId(e.target.value)}
+                    className="w-full bg-surface-900 border border-surface-500/30 rounded px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:border-discord-blurple"
+                  >
+                    <option value="current">Current Active Discord: {blueprint.server.name}</option>
+                    {savedServersList.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        Saved Server: {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Live Progress Bar with Glowing Effect */}
+                {roadmapReport && (
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex items-center justify-between text-xs font-semibold">
+                      <span className="text-text-primary flex items-center gap-1.5">
+                        <span>Implementation Progress</span>
+                        {roadmapReport.percentCompleted === 100 ? (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                            ✓ 100% Complete
+                          </span>
+                        ) : (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                            {roadmapReport.completedItems} / {roadmapReport.totalItems} Items
+                          </span>
+                        )}
+                      </span>
+                      <span className="font-mono text-emerald-400 font-bold text-sm">
+                        {roadmapReport.percentCompleted}%
+                      </span>
+                    </div>
+
+                    <div className="w-full h-2 rounded-full bg-surface-800 overflow-hidden border border-surface-500/20">
+                      <div
+                        className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 transition-all duration-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
+                        style={{ width: `${roadmapReport.percentCompleted}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-1.5 pt-1">
+                  <button
+                    onClick={handleVerifyProgress}
+                    disabled={isVerifyingChanges}
+                    className="btn-primary flex-1 py-1.5 text-xs flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isVerifyingChanges ? "animate-spin" : ""}`} />
+                    <span>{isVerifyingChanges ? "Scanning Discord..." : "Re-scan & Verify Discord"}</span>
+                  </button>
+
+                  <button
+                    onClick={handleCopyRoadmapChecklist}
+                    className="btn-secondary py-1.5 px-2.5 text-xs flex items-center justify-center gap-1"
+                    title="Copy Markdown Checklist"
+                  >
+                    {roadmapCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{roadmapCopied ? "Copied" : "Checklist"}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Task Filters */}
+              <div className="flex items-center gap-1 bg-surface-900/60 p-1 rounded-lg border border-surface-500/20 text-[11px]">
+                <button
+                  onClick={() => setRoadmapFilter("all")}
+                  className={`flex-1 py-0.5 rounded transition-colors ${
+                    roadmapFilter === "all" ? "bg-surface-700 text-text-primary font-semibold" : "text-text-muted"
+                  }`}
+                >
+                  All ({roadmapReport?.totalItems || 0})
+                </button>
+                <button
+                  onClick={() => setRoadmapFilter("completed")}
+                  className={`flex-1 py-0.5 rounded transition-colors flex items-center justify-center gap-1 ${
+                    roadmapFilter === "completed" ? "bg-emerald-500/20 text-emerald-300 font-semibold" : "text-text-muted"
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#10b981]" />
+                  <span>Completed ({roadmapReport?.completedItems || 0})</span>
+                </button>
+                <button
+                  onClick={() => setRoadmapFilter("pending")}
+                  className={`flex-1 py-0.5 rounded transition-colors flex items-center justify-center gap-1 ${
+                    roadmapFilter === "pending" ? "bg-amber-500/20 text-amber-300 font-semibold" : "text-text-muted"
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                  <span>Pending ({(roadmapReport?.totalItems || 0) - (roadmapReport?.completedItems || 0)})</span>
+                </button>
+              </div>
+
+              {/* Step-by-Step Categories & Channels Checklist */}
+              {roadmapReport && (
+                <div className="space-y-2.5">
+                  {roadmapReport.categoryProgress.map((catProg) => {
+                    const catChannels = roadmapReport.channelProgress.filter(
+                      (ch) => ch.planned.categoryId === catProg.planned.id || ch.planned.categoryName === catProg.planned.name
+                    );
+
+                    const filteredCatChannels = catChannels.filter((ch) => {
+                      if (roadmapFilter === "completed") return ch.isCompleted;
+                      if (roadmapFilter === "pending") return !ch.isCompleted;
+                      return true;
+                    });
+
+                    // If filter is active and category itself is not matched and no channels match, skip
+                    if (roadmapFilter === "completed" && !catProg.isCompleted && filteredCatChannels.length === 0) {
+                      return null;
+                    }
+                    if (roadmapFilter === "pending" && catProg.isCompleted && filteredCatChannels.length === 0) {
+                      return null;
+                    }
+
+                    return (
+                      <div
+                        key={catProg.planned.id}
+                        className={`rounded-xl border p-3 space-y-2 transition-all ${
+                          catProg.isCompleted
+                            ? "bg-emerald-500/5 border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.08)]"
+                            : "bg-surface-900 border-surface-500/30"
+                        }`}
+                      >
+                        {/* Category Header */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 font-bold text-xs min-w-0">
+                            {catProg.isCompleted ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                            ) : (
+                              <Circle className="w-4 h-4 text-amber-400/70 flex-shrink-0" />
+                            )}
+                            <Folder className="w-3.5 h-3.5 text-discord-blurple flex-shrink-0" />
+                            <span className={`truncate uppercase tracking-wider ${catProg.isCompleted ? "text-emerald-200" : "text-text-primary"}`}>
+                              {catProg.planned.name}
+                            </span>
+                            {catProg.planned.isPrivate && (
+                              <span className="flex items-center gap-0.5 text-[8px] px-1.5 py-0.2 rounded border border-amber-500/40 bg-amber-500/15 text-amber-300 font-semibold uppercase flex-shrink-0">
+                                <Lock className="w-2 h-2 text-amber-400" />
+                                <span>{catProg.planned.privateAudience || "Private"}</span>
+                              </span>
+                            )}
+                          </div>
+
+                          {catProg.isCompleted ? (
+                            <span className="flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold shadow-[0_0_8px_rgba(16,185,129,0.3)]">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                              <span>✓ COMPLETED</span>
+                            </span>
+                          ) : (
+                            <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold">
+                              PENDING
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Category Setup Guide if Pending */}
+                        {!catProg.isCompleted && (
+                          <div className="p-2 rounded bg-surface-950/70 border border-surface-500/20 text-[10px] space-y-0.5 text-text-secondary">
+                            <div className="text-amber-300 font-semibold">Action in Discord:</div>
+                            <p>Right-click server name ➔ <strong>Create Category</strong> ➔ name it "{catProg.planned.name}". {catProg.planned.isPrivate ? `Toggle Private Category and grant roles for ${catProg.planned.privateAudience || "Staff"}.` : "Leave public."}</p>
+                          </div>
+                        )}
+
+                        {/* Channels in Category */}
+                        <div className="space-y-1.5 pl-3 border-l-2 border-surface-500/20 pt-1">
+                          {filteredCatChannels.map((chProg) => (
+                            <div
+                              key={chProg.planned.id}
+                              className={`p-2 rounded-lg border text-xs space-y-1 transition-all ${
+                                chProg.isCompleted
+                                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-200"
+                                  : "bg-surface-950/60 border-surface-500/20 text-text-secondary"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-1">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  {chProg.isCompleted ? (
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                                  ) : (
+                                    <Circle className="w-3.5 h-3.5 text-amber-400/80 flex-shrink-0" />
+                                  )}
+                                  <span className="font-semibold truncate">#{chProg.planned.name}</span>
+                                  <span className="text-[10px] text-text-muted capitalize">({chProg.planned.type})</span>
+                                </div>
+
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  {chProg.planned.isPrivate ? (
+                                    <span
+                                      title={`Private: ${chProg.planned.privateAudience || "Restricted"}`}
+                                      className="flex items-center gap-0.5 text-[8px] px-1.5 py-0.2 rounded border border-amber-500/30 bg-amber-500/15 text-amber-300 font-medium"
+                                    >
+                                      <Lock className="w-2 h-2 text-amber-400" />
+                                      <span className="truncate max-w-[65px]">{chProg.planned.privateAudience || "Private"}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-[8px] px-1.5 py-0.2 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 font-medium">
+                                      Public
+                                    </span>
+                                  )}
+
+                                  {chProg.isCompleted ? (
+                                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold flex items-center gap-1 shadow-[0_0_6px_rgba(16,185,129,0.3)]">
+                                      <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                                      <span>✓ Live</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-surface-800 text-text-muted border border-surface-500/20">
+                                      Pending
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Detailed Instruction if Pending */}
+                              {!chProg.isCompleted && (
+                                <div className="p-1.5 rounded bg-surface-900 border border-surface-500/15 text-[10px] space-y-0.5 text-text-muted">
+                                  <div className="text-text-primary font-medium">
+                                    Create #{chProg.planned.name} under {catProg.planned.name}
+                                  </div>
+                                  {chProg.planned.isPrivate ? (
+                                    <div className="text-amber-300">
+                                      🔒 In Discord: Enable Private Channel ➔ Assign view permissions to: {chProg.planned.privateAudience || "Restricted Roles"}.
+                                    </div>
+                                  ) : (
+                                    <div className="text-emerald-400">
+                                      🌐 In Discord: Common channel visible to @everyone.
+                                    </div>
+                                  )}
+                                  {chProg.planned.topic && (
+                                    <div className="italic text-text-muted truncate">
+                                      Topic: "{chProg.planned.topic}"
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

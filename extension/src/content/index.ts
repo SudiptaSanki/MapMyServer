@@ -185,6 +185,15 @@ function setupSettingsObserver() {
         chrome.runtime.sendMessage(msg).catch(() => {});
       }
     }
+    else if (selectedText === "overview") {
+      const descEl = document.querySelector('textarea[name="description"], textarea[aria-label*="description" i], textarea[class*="description" i]') as HTMLTextAreaElement | null;
+      if (descEl && descEl.value && descEl.value.trim().length > 0) {
+        chrome.runtime.sendMessage({
+          type: "SERVER_OVERVIEW_COLLECTED",
+          payload: { guildId: lastGuildId, description: descEl.value.trim() },
+        }).catch(() => {});
+      }
+    }
   }, 2000);
 }
 

@@ -52,6 +52,8 @@ export interface ClonerOperation {
   name: string;
   categoryName?: string;
   channelType?: string;
+  isPrivate?: boolean;
+  privateAudience?: string;
   details: string;
   isDestructive: boolean;
   dependencies: string[];
@@ -335,7 +337,9 @@ export function createCloningPlan(
         action: "CREATE_CATEGORY",
         resourceType: "category",
         name: cat.name,
-        details: `Create category "${cat.name}".`,
+        isPrivate: cat.isPrivate,
+        privateAudience: cat.privateAudience,
+        details: `Create ${cat.isPrivate ? "private " : ""}category "${cat.name}"${cat.privateAudience ? ` (${cat.privateAudience})` : ""}.`,
         isDestructive: false,
         dependencies: [],
       });
@@ -358,6 +362,13 @@ export function createCloningPlan(
       destChannelsByName.has(norm) &&
       (!parentCat || destCategoriesByName.has(parentCat.name.trim().toLowerCase()));
 
+    const isPriv = Boolean(
+      ch.isPrivate ||
+      ch.visibilityAnalysis?.classification === "role-restricted" ||
+      ch.visibilityAnalysis?.classification === "member-restricted"
+    );
+    const privAud = ch.privateAudience || (isPriv ? "Restricted" : undefined);
+
     if (isDuplicate) {
       skippedDuplicatesCount++;
       operations.push({
@@ -367,6 +378,8 @@ export function createCloningPlan(
         name: ch.name,
         categoryName: catName,
         channelType: ch.type,
+        isPrivate: isPriv,
+        privateAudience: privAud,
         details: `Channel #${ch.name} already exists in target server. Skipped to prevent duplicates.`,
         isDestructive: false,
         dependencies: catOpId ? [catOpId] : [],
@@ -380,9 +393,11 @@ export function createCloningPlan(
         name: ch.name,
         categoryName: catName,
         channelType: ch.type,
-        details: `Create ${ch.type} channel #${ch.name}${catName ? ` under "${catName}"` : ""}${
-          ch.topic ? ` with topic "${ch.topic}"` : ""
-        }.`,
+        isPrivate: isPriv,
+        privateAudience: privAud,
+        details: `Create ${isPriv ? "private " : ""}${ch.type} channel #${ch.name}${catName ? ` under "${catName}"` : ""}${
+          privAud ? ` [${privAud}]` : ""
+        }${ch.topic ? ` with topic "${ch.topic}"` : ""}.`,
         isDestructive: false,
         dependencies: catOpId ? [catOpId] : [],
       });

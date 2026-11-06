@@ -66,6 +66,13 @@ export interface ChannelPermissionsCollectedMessage {
   };
 }
 
+export interface ServerOverviewCollectedMessage {
+  type: "SERVER_OVERVIEW_COLLECTED";
+  payload: {
+    description?: string;
+  };
+}
+
 // ── Background → Content Script ────────────────
 
 export interface CollectStructureMessage {
@@ -156,7 +163,8 @@ export type ContentToBackgroundMessage =
   | CollectionProgressMessage
   | CollectionErrorMessage
   | RolesCollectedMessage
-  | ChannelPermissionsCollectedMessage;
+  | ChannelPermissionsCollectedMessage
+  | ServerOverviewCollectedMessage;
 
 export type BackgroundToContentMessage =
   | CollectStructureMessage

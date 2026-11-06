@@ -232,6 +232,48 @@ export function computeEffectivePermissions(params: ComputePermissionsParams): {
   };
 }
 
+// ── Private Audience Inference Helper ──────────
+
+export function inferPrivateAudience(
+  channelName: string,
+  categoryName?: string | null,
+  rolesWithAccess: string[] = []
+): string {
+  const meaningfulRoles = rolesWithAccess.filter((r) => r.toLowerCase() !== "@everyone");
+  if (meaningfulRoles.length > 0) {
+    if (meaningfulRoles.length <= 2) {
+      return `Restricted to @${meaningfulRoles.join(", @")}`;
+    }
+    return `Restricted to @${meaningfulRoles[0]} +${meaningfulRoles.length - 1} roles`;
+  }
+
+  const combined = `${categoryName || ""} ${channelName}`.toLowerCase();
+
+  if (/admin|executive|owner|founder|management|directors|leads/i.test(combined)) {
+    return "Server Administration Only";
+  }
+  if (/staff|mod|moderator|guard|security|warden|tribunal/i.test(combined)) {
+    return "Staff & Moderation Team";
+  }
+  if (/log|audit|bot|webhook|system|terminal|github|git|alerts/i.test(combined)) {
+    return "Bot Logs & System Audits";
+  }
+  if (/vip|booster|donor|supporter|premium|patron|sponsor/i.test(combined)) {
+    return "Server Boosters & VIP";
+  }
+  if (/dev|developer|coder|engineering|code|tech|testing|staging|qa/i.test(combined)) {
+    return "Developers & Tech Staff";
+  }
+  if (/archive|legacy|deprecated|old|read-only/i.test(combined)) {
+    return "Archived / Read-Only";
+  }
+  if (/meeting|scrim|private-voice|huddle|office/i.test(combined)) {
+    return "Private Voice & Meetings";
+  }
+
+  return "Private / Role-Restricted";
+}
+
 // ── Category Synchronization Check ────────────
 
 /**
@@ -334,18 +376,32 @@ export function evaluateChannelVisibility(
   // Determine classification
   let classification: VisibilityClassification = "unknown";
   let reason = "";
+  const isExplicitlyPrivate = Boolean(channel.isPrivate || parentCategory?.isPrivate);
 
   if (overwrites.length === 0 && guildRoles.length === 0) {
-    classification = "broadly-accessible";
-    reason = "No permission restrictions detected; assumed public by default.";
+    if (isExplicitlyPrivate) {
+      classification = "role-restricted";
+      const aud = channel.privateAudience || inferPrivateAudience(channel.name, parentCategory?.name, rolesWithAccess);
+      reason = `Private channel (lock icon detected in Discord): ${aud}.`;
+    } else {
+      classification = "broadly-accessible";
+      reason = "No permission restrictions detected; assumed public by default.";
+    }
   } else if (everyoneCanView && rolesWithAccess.length === 0 && !hasMemberOverwrites) {
-    classification = "broadly-accessible";
-    reason = "Broadly accessible to all community members through @everyone permissions.";
+    if (isExplicitlyPrivate) {
+      classification = "role-restricted";
+      const aud = channel.privateAudience || inferPrivateAudience(channel.name, parentCategory?.name, rolesWithAccess);
+      reason = `Private channel: ${aud}.`;
+    } else {
+      classification = "broadly-accessible";
+      reason = "Broadly accessible to all community members through @everyone permissions.";
+    }
   } else if (!everyoneCanView && rolesWithAccess.length > 0) {
     classification = "role-restricted";
     const roleNamesList = rolesWithAccess.slice(0, 3).join(", ");
     const more = rolesWithAccess.length > 3 ? ` (+${rolesWithAccess.length - 3} more)` : "";
-    reason = `Restricted channel: @everyone is denied. Accessible only to roles: ${roleNamesList}${more}.`;
+    const aud = channel.privateAudience || inferPrivateAudience(channel.name, parentCategory?.name, rolesWithAccess);
+    reason = `Restricted channel (${aud}): @everyone is denied. Accessible only to roles: ${roleNamesList}${more}.`;
   } else if (!everyoneCanView && hasMemberOverwrites && rolesWithAccess.length === 0) {
     classification = "member-restricted";
     reason = "Private channel: @everyone and standard roles are denied. Accessible only to specific designated members.";
@@ -355,6 +411,10 @@ export function evaluateChannelVisibility(
   } else if (!everyoneCanView && rolesWithAccess.length === 0 && !hasMemberOverwrites) {
     classification = "user-inaccessible";
     reason = "Channel permissions deny view access to all evaluated standard roles and @everyone.";
+  } else if (isExplicitlyPrivate) {
+    classification = "role-restricted";
+    const aud = channel.privateAudience || inferPrivateAudience(channel.name, parentCategory?.name, rolesWithAccess);
+    reason = `Private channel: ${aud}.`;
   } else {
     classification = "broadly-accessible";
     reason = "Accessible based on evaluated server hierarchy.";

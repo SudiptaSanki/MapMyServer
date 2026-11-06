@@ -59,7 +59,8 @@ function getNodeIcon(type: string) {
   }
 }
 
-function getVisibilityBorderColor(classification?: VisibilityClassification): string {
+function getVisibilityBorderColor(classification?: VisibilityClassification, isPrivate?: boolean): string {
+  if (isPrivate) return "#f59e0b";
   switch (classification) {
     case "broadly-accessible":
       return "#3f4147"; // clean default
@@ -140,10 +141,15 @@ function convertBlueprintToGraph(
     if (chan.type === "announcement" && !filters.showAnnouncements) return false;
 
     // 3. Visibility filter
-    const vis = chan.visibilityAnalysis?.classification || "broadly-accessible";
-    if (vis === "broadly-accessible" && !filters.showPublic) return false;
-    if (vis === "role-restricted" && !filters.showRestricted) return false;
-    if (vis === "user-inaccessible" && !filters.showPrivate) return false;
+    const isPriv = Boolean(chan.isPrivate);
+    const vis = chan.visibilityAnalysis?.classification;
+    const isRestr = isPriv || vis === "role-restricted" || vis === "member-restricted";
+    const isInacc = vis === "user-inaccessible";
+    const isPub = !isRestr && !isInacc;
+
+    if (isPub && !filters.showPublic) return false;
+    if (isRestr && !filters.showRestricted) return false;
+    if (isInacc && !filters.showPrivate) return false;
 
     // 4. Search query
     if (searchQuery) {
@@ -200,9 +206,20 @@ function convertBlueprintToGraph(
       data: {
         type: "category",
         label: (
-          <div className="flex items-center gap-1.5 font-semibold text-[11px] uppercase tracking-wider text-text-secondary px-2 py-1">
-            <Folder className="w-3.5 h-3.5 text-text-muted flex-shrink-0" />
-            <span className="truncate">{cat.name}</span>
+          <div className="flex items-center justify-between w-full px-2 py-1">
+            <div className="flex items-center gap-1.5 min-w-0 font-semibold text-[11px] uppercase tracking-wider text-text-secondary truncate">
+              <Folder className="w-3.5 h-3.5 text-text-muted flex-shrink-0" />
+              <span className="truncate">{cat.name}</span>
+            </div>
+            {cat.isPrivate && (
+              <span
+                title={`Private Category (${cat.privateAudience || "Staff"})`}
+                className="flex items-center gap-0.5 text-[9px] px-1 py-0.2 rounded border border-amber-500/40 bg-amber-500/15 text-amber-300 font-semibold uppercase tracking-wider ml-1 flex-shrink-0"
+              >
+                <Lock className="w-2.5 h-2.5 text-amber-400" />
+                <span>{cat.privateAudience || "Private"}</span>
+              </span>
+            )}
           </div>
         ),
       },
@@ -210,7 +227,7 @@ function convertBlueprintToGraph(
       style: {
         background: "#2b2d31",
         color: "#dbdee1",
-        border: "1px solid #3f4147",
+        border: cat.isPrivate ? "1px solid #f59e0b" : "1px solid #3f4147",
         borderRadius: "6px",
         width: nodeWidth,
       },
@@ -234,11 +251,13 @@ function convertBlueprintToGraph(
         : blueprint.server.id;
 
     const icon = getNodeIcon(chan.type);
-    const borderColor = getVisibilityBorderColor(chan.visibilityAnalysis?.classification);
+    const borderColor = getVisibilityBorderColor(chan.visibilityAnalysis?.classification, chan.isPrivate);
     const isSelected = selectedChannelId === chan.id;
     const isRestricted =
+      chan.isPrivate ||
       chan.visibilityAnalysis?.classification === "role-restricted" ||
       chan.visibilityAnalysis?.classification === "member-restricted";
+    const audience = chan.privateAudience || (isRestricted ? "Private" : null);
 
     initialNodes.push({
       id: chan.id,
@@ -255,8 +274,12 @@ function convertBlueprintToGraph(
               </span>
             </div>
             {isRestricted && (
-              <span title="Restricted Channel" className="flex-shrink-0 text-amber-400 ml-1">
-                <Lock className="w-3 h-3" />
+              <span
+                title={`Private Channel (${audience || "Restricted"})`}
+                className="flex-shrink-0 flex items-center gap-0.5 text-[9px] px-1 py-0.2 rounded border border-amber-500/30 bg-amber-500/15 text-amber-300 ml-1"
+              >
+                <Lock className="w-2.5 h-2.5 text-amber-400" />
+                <span className="truncate max-w-[60px]">{audience}</span>
               </span>
             )}
           </div>

@@ -349,6 +349,24 @@ async function handleMessage(
       break;
     }
 
+    case "SERVER_OVERVIEW_COLLECTED": {
+      const { guildId, description } = (message as any).payload;
+      const bp = await loadBlueprint(guildId);
+      if (bp && description && bp.server.description !== description) {
+        const updatedBp = {
+          ...bp,
+          server: {
+            ...bp.server,
+            description,
+          },
+        };
+        await saveBlueprint(guildId, updatedBp);
+        broadcastToUI({ type: "BLUEPRINT_READY", payload: updatedBp });
+      }
+      sendResponse({ status: "ok" });
+      break;
+    }
+
     case "COLLECTION_PROGRESS": {
       const progressMsg: AnalysisProgressMessage = {
         type: "ANALYSIS_PROGRESS",

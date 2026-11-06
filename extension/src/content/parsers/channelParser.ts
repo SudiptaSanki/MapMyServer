@@ -8,12 +8,13 @@
  *  scrollers by performing automated sweep scans.
  * ───────────────────────────────────────────── */
 
-import type {
-  Category,
-  Channel,
-  Thread,
-  ChannelType,
-  VisibilityInfo,
+import {
+  type Category,
+  type Channel,
+  type Thread,
+  type ChannelType,
+  type VisibilityInfo,
+  inferPrivateAudience,
 } from "@mapmyserver/shared";
 
 function makeVisibility(): VisibilityInfo {
@@ -182,11 +183,15 @@ function parseVisibleSlice(
           state.currentCategory = existingCat;
         } else {
           const catId = `cat_${state.categoryPosition}_${slugify(categoryName)}`;
+          const isCatPrivate = detectPadlock(el) || /staff|admin|mod|logs|audit|internal|secret|private/i.test(categoryName);
+          const catAudience = isCatPrivate ? inferPrivateAudience(categoryName, null) : undefined;
           state.currentCategory = {
             id: catId,
             name: categoryName,
             position: state.categoryPosition++,
             channelIds: [],
+            isPrivate: isCatPrivate,
+            privateAudience: catAudience,
             visibility: makeVisibility(),
           };
           categories.push(state.currentCategory);
@@ -217,6 +222,12 @@ function parseVisibleSlice(
         continue;
       }
 
+      const isParentPrivate = Boolean(state.currentCategory?.isPrivate);
+      const isChanPrivate = Boolean(channelInfo.isPrivate || isParentPrivate);
+      const privateAudience = isChanPrivate
+        ? channelInfo.privateAudience || state.currentCategory?.privateAudience || inferPrivateAudience(channelInfo.name, state.currentCategory?.name)
+        : undefined;
+
       const channel: Channel = {
         id: chanId,
         name: channelInfo.name,
@@ -224,6 +235,8 @@ function parseVisibleSlice(
         parentId: state.currentCategory?.id ?? null,
         position: state.channelPosition++,
         topic: channelInfo.topic,
+        isPrivate: isChanPrivate,
+        privateAudience,
         visibility: makeVisibility(),
       };
       channels.push(channel);
@@ -407,22 +420,52 @@ interface ChannelInfo {
   type: ChannelType;
   id?: string;
   topic?: string;
+  isPrivate?: boolean;
+  privateAudience?: string;
+}
+
+function detectPadlock(el: HTMLElement): boolean {
+  const aria = (el.getAttribute("aria-label") ?? "").toLowerCase();
+  if (aria.includes("limited") || aria.includes("private") || aria.includes("locked")) return true;
+
+  const className = typeof el.className === "string" ? el.className.toLowerCase() : "";
+  if (className.includes("lock") || className.includes("private")) return true;
+
+  const lockEl = el.querySelector(
+    '[class*="lock" i], [aria-label*="limited" i], [aria-label*="private" i], [aria-label*="locked" i], svg[class*="Lock"]'
+  );
+  if (lockEl) return true;
+
+  const svgs = el.querySelectorAll("svg");
+  for (const svg of svgs) {
+    const sAria = (svg.getAttribute("aria-label") ?? "").toLowerCase();
+    const sClass = (svg.getAttribute("class") ?? "").toLowerCase();
+    if (sAria.includes("limited") || sAria.includes("private") || sAria.includes("lock") || sClass.includes("lock")) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function extractChannelInfo(el: HTMLElement): ChannelInfo | null {
   const ariaLabel = el.getAttribute("aria-label") ?? "";
   const text = el.textContent?.trim() ?? "";
+  const hasLock = detectPadlock(el);
 
   // Strategy 1: ARIA label
   if (ariaLabel.length > 0) {
     const channelType = detectChannelTypeFromAria(ariaLabel);
     if (channelType) {
-      const name = ariaLabel.split(",")[0]?.trim() ?? text;
+      const rawName = ariaLabel.split(",")[0]?.trim() ?? text;
+      const name = cleanChannelName(rawName);
       if (name.length > 0 && name.length < 100) {
+        const isPrivate = hasLock || /staff|admin|mod|logs|audit|internal|secret|private/i.test(name);
         return {
-          name: cleanChannelName(name),
+          name,
           type: channelType,
           id: extractDiscordId(el),
+          isPrivate,
+          privateAudience: isPrivate ? inferPrivateAudience(name, null) : undefined,
         };
       }
     }
@@ -435,10 +478,13 @@ function extractChannelInfo(el: HTMLElement): ChannelInfo | null {
       const type = inferChannelTypeFromElement(el);
       const name = cleanChannelName(text);
       if (name.length > 0 && name.length < 100) {
+        const isPrivate = hasLock || /staff|admin|mod|logs|audit|internal|secret|private/i.test(name);
         return {
           name,
           type,
           id: extractDiscordId(el) ?? extractChannelIdFromHref(href),
+          isPrivate,
+          privateAudience: isPrivate ? inferPrivateAudience(name, null) : undefined,
         };
       }
     }

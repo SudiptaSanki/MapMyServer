@@ -269,19 +269,31 @@ function TreeNodeComponent({
           <HighlightedText text={node.name} query={searchQuery} />
         </span>
 
+        {/* Category Privacy Badge */}
+        {isCategory && node.metadata?.isPrivate && (
+          <span
+            title={`Private Category: Intended for ${node.metadata.privateAudience || "Staff/Admins"}`}
+            className="flex-shrink-0 flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded border border-amber-500/40 bg-amber-500/15 text-amber-300 font-semibold uppercase tracking-wider"
+          >
+            <Lock className="w-2.5 h-2.5 text-amber-400" />
+            <span>{node.metadata.privateAudience || "Private"}</span>
+          </span>
+        )}
+
+        {/* Channel Privacy & Audience Badge */}
+        {isChannel && (node.metadata?.isPrivate || vis?.classification === "role-restricted" || vis?.classification === "member-restricted") && (
+          <span
+            title={`Private Channel: Intended for ${node.metadata?.privateAudience || "Restricted Roles"}`}
+            className="flex-shrink-0 flex items-center gap-1 text-[9px] px-1.5 py-0.2 rounded border border-amber-500/40 bg-amber-500/15 text-amber-300 font-medium"
+          >
+            <Lock className="w-2.5 h-2.5 text-amber-400" />
+            <span>{node.metadata?.privateAudience || "Private"}</span>
+          </span>
+        )}
+
         {/* Visibility Icon Indicator */}
         {isChannel && vis && (
           <>
-            {vis.classification === "role-restricted" && (
-              <span title={`Role Restricted: ${vis.reason}`} className="text-amber-400 flex-shrink-0">
-                <Lock className="w-3 h-3" />
-              </span>
-            )}
-            {vis.classification === "member-restricted" && (
-              <span title={`Member Restricted: ${vis.reason}`} className="text-fuchsia-400 flex-shrink-0">
-                <Lock className="w-3 h-3" />
-              </span>
-            )}
             {vis.classification === "user-inaccessible" && (
               <span title={`Inaccessible: ${vis.reason}`} className="text-discord-red flex-shrink-0">
                 <ShieldAlert className="w-3 h-3" />
@@ -390,10 +402,15 @@ function filterTree(
 
   // Visibility filter for channels
   if (node.type !== "server" && node.type !== "category" && node.type !== "thread") {
-    const vis = node.metadata?.visibilityAnalysis?.classification || "broadly-accessible";
-    if (vis === "broadly-accessible" && !filters.showPublic) return null;
-    if ((vis === "role-restricted" || vis === "member-restricted") && !filters.showRestricted) return null;
-    if (vis === "user-inaccessible" && !filters.showPrivate) return null;
+    const isPriv = Boolean(node.metadata?.isPrivate);
+    const vis = node.metadata?.visibilityAnalysis?.classification;
+    const isRestricted = isPriv || vis === "role-restricted" || vis === "member-restricted";
+    const isInaccessible = vis === "user-inaccessible";
+    const isPublic = !isRestricted && !isInaccessible;
+
+    if (isPublic && !filters.showPublic) return null;
+    if (isRestricted && !filters.showRestricted) return null;
+    if (isInaccessible && !filters.showPrivate) return null;
   }
 
   let filteredChildren = node.children
