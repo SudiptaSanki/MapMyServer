@@ -194,5 +194,5 @@ npm run build
 MapMyServer is open-source software licensed under the [MIT License](LICENSE).
 
 <!-- autobot:start -->
-<!-- s:c6887fcb t:2026-11-26T18:40:12.205Z a:architecture review b:1307 -->
+<!-- s:d195e784 t:2026-11-28T10:35:40.788Z a:optimized queries b:9236 -->
 <!-- autobot:end -->
